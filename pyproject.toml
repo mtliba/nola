@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nola-ct"
+version = "1.0.0"
+description = "Source-free noise-law adaptation for cross-system CT projection denoising"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["computed-tomography", "denoising", "domain-adaptation",
+            "source-free", "poisson-gaussian", "low-dose-ct"]
+classifiers = [
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Image Processing",
+]
+
+# The method itself needs only these. The tomography stack is an extra on
+# purpose: ODL and ASTRA are the hardest part of this install, and nothing in
+# nola/{units,lawfit,losses,adapt}.py imports them.
+dependencies = [
+  "numpy>=1.21",
+  "torch>=1.13",
+]
+
+[project.optional-dependencies]
+# Enough to run examples/demo.py end to end. No ODL, no ASTRA, no data.
+demo = ["scipy>=1.7", "matplotlib>=3.5"]
+# Everything needed to reproduce the paper on the real datasets.
+full = ["scipy>=1.7", "matplotlib>=3.5", "odl>=0.7", "pyiqa>=0.1.7",
+        "pydicom>=2.3", "h5py>=3.6"]
+dev = ["pytest>=7.0", "ruff>=0.1"]
+
+[project.urls]
+Homepage = "https://mtliba.github.io/nola/"
+Source = "https://github.com/mtliba/nola"
+
+[tool.setuptools.packages.find]
+include = ["nola*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::UserWarning"]
+
+[tool.ruff]
+line-length = 88

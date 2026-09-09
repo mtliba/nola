@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+
+# outputs
+demo_out/
+results/
+checkpoints/
+logs/
+*.pt
+*.npz
