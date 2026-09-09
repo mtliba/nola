@@ -172,6 +172,11 @@ def main() -> int:
                          "curvature instead of noise and I0 comes out low")
     ap.add_argument("--out", type=Path, default=Path("demo_out"))
     ap.add_argument("--seed", type=int, default=0)
+    # Defaults mirror the paper's 25% dose operating point (D = 2.09).
+    # Try --target-i0 8000 --target-sigma-e 12 to land at D = 0.50 and
+    # watch adaptation fail exactly as the criterion predicts.
+    ap.add_argument("--target-i0", type=float, default=37500.0)
+    ap.add_argument("--target-sigma-e", type=float, default=10.0)
     args = ap.parse_args()
 
     dev = args.device
@@ -183,12 +188,30 @@ def main() -> int:
     # exactly and it sits on the boundary of the two-parameter family; that is
     # why no rescaling of the source law can reach the target.
     SRC_I0, SRC_SE = 4096.0, 0.0
-    TGT_I0, TGT_SE = 8000.0, 12.0
+    TGT_I0, TGT_SE = args.target_i0, args.target_sigma_e
 
     print(__doc__.split("\n\n")[0])
     print(f"\nsource system : I0={SRC_I0:>8.0f}  sigma_e={SRC_SE:>5.1f}   (b = 0)")
     print(f"target system : I0={TGT_I0:>8.0f}  sigma_e={TGT_SE:>5.1f}   (b > 0)")
-    print(f"c_M = {MU_MAX:.5f}\n")
+    print(f"c_M = {MU_MAX:.5f}")
+
+    # The shift magnitude decides whether adaptation is worth doing AT ALL,
+    # and it is computable before adapting, with no labels. The paper measures
+    # rho = 0.953 between D and the gain over a 4x4 grid of acquisitions, and
+    # every configuration that got worse had D < 1. So print it, and say what
+    # it predicts -- including when it predicts failure.
+    src_law = NoiseLaw.from_physical(SRC_I0, SRC_SE)
+    tgt_law = NoiseLaw.from_physical(TGT_I0, TGT_SE)
+    pp = np.linspace(0.0, 5.0, 200)
+    wgt = np.exp(-((pp - 1.9) / 1.5) ** 2); wgt /= wgt.sum()
+    D = float(np.sum(wgt * np.abs(np.log(tgt_law.variance(pp / MU_MAX)
+                                         / src_law.variance(pp / MU_MAX)))))
+    verdict = ("adaptation should help" if D > 1.3 else
+               "LOW MISMATCH: the paper's criterion predicts adaptation will "
+               "not help here, and may hurt" if D < 0.9 else
+               "borderline; the 10% dose case that fails in the paper is D=1.05")
+    print(f"shift magnitude D = {D:.2f}   -> {verdict}")
+    print(f"(the paper's 25% dose operating point is D = 2.09)\n")
 
     # ---- data ------------------------------------------------------------
     print("[1/6] building phantoms and clean sinograms")

@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+title: "NoLA: Source-Free Noise-Law Adaptation for Cross-System CT Projection Denoising"
+message: "If you use this software, please cite the paper."
+type: software
+license: MIT
+repository-code: "https://github.com/mtliba/nola"
+url: "https://mtliba.github.io/nola/"
+preferred-citation:
+  type: conference-paper
+  title: "NoLA: Source-Free Noise-Law Adaptation for Cross-System CT Projection Denoising"
+  collection-title: "ICASSP"
+  year: 2026
