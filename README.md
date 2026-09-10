@@ -151,8 +151,23 @@ python scripts/evaluate.py       --data-root $DATA --out-dir results/ \
                                  --checkpoint results/nola_dose25.pt --dose 25
 ```
 
-`scripts/train_source.py` trains θ_src from LoDoPaB if you want to start from
-scratch; otherwise the released checkpoint is the same one used in the paper.
+**Pretrained weights.** Both released checkpoints are the ones every number in
+the paper came from:
+
+```bash
+python scripts/download_weights.py          # both, into checkpoints/
+python scripts/download_weights.py --verify-only
+```
+
+| file | what it is |
+|---|---|
+| `theta_src.pt` | the source denoiser, trained on 8,000 LoDoPaB slices. The starting point for adaptation, and the "source-only" row. |
+| `nola_dose25.pt` | `theta_src` after NoLA adaptation to the 25 % dose target, using unlabelled sinograms only. The "NoLA" row. |
+
+Each is 67 MB and is checked against a recorded SHA-256 — a truncated torch
+checkpoint usually loads without complaint and then produces quietly wrong
+numbers. `scripts/train_source.py` trains θ_src from LoDoPaB if you would
+rather start from scratch.
 
 **A warning about the operator backend.** `astra_cpu` and `astra_cuda`
 reconstruct the same sinogram differently enough to shift PSNR by **1.2 dB on
