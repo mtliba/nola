@@ -3,113 +3,192 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NoLA — Noise-Law Adaptation for cross-system CT denoising</title>
-<meta name="description" content="Adapt a CT projection denoiser to a new scanner using only unlabelled target sinograms.">
+<title>NoLA: Source-Free Noise-Law Adaptation for Cross-System CT Projection Denoising</title>
+<meta name="description" content="Adapt a CT projection denoiser to a new scanner using only unlabelled target sinograms, by estimating the target Poisson-Gaussian noise law.">
+<meta property="og:title" content="NoLA: Source-Free Noise-Law Adaptation">
+<meta property="og:description" content="Adapt to the physics, not the data.">
 <style>
 :root{
-  --bg:#fbfbfa; --panel:#fff; --ink:#16181d; --mut:#5d6470; --line:#e4e6ea;
-  --ours:#c1272d; --free:#2f6fdb; --sup:#2e7d32; --oracle:#d99728; --none:#8c8c8c;
-  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --bg:#ffffff; --soft:#f7f8fa; --ink:#1a1c21; --mut:#5b6472; --line:#e3e6eb;
+  --accent:#1f5fd0; --ours:#c0392b; --ok:#1e7d4f; --warn:#b8860b;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --serif:"Charter","Georgia","Times New Roman",serif;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
-  --bg:#0f1115; --panel:#161a21; --ink:#e8eaee; --mut:#9aa3b2; --line:#262c36;
-  --ours:#ff6b6b; --free:#6ea8ff; --sup:#6ddc7a; --oracle:#f0b849; --none:#8b93a1;
-}}
-:root[data-theme=dark]{
-  --bg:#0f1115; --panel:#161a21; --ink:#e8eaee; --mut:#9aa3b2; --line:#262c36;
-  --ours:#ff6b6b; --free:#6ea8ff; --sup:#6ddc7a; --oracle:#f0b849; --none:#8b93a1;
-}
 *{box-sizing:border-box}
+html{scroll-behavior:smooth}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
-     line-height:1.6;-webkit-font-smoothing:antialiased}
-.wrap{max-width:960px;margin:0 auto;padding:0 22px}
-header{padding:64px 0 30px;border-bottom:1px solid var(--line)}
-h1{font-size:clamp(28px,5vw,44px);line-height:1.1;margin:0 0 12px;letter-spacing:-.02em}
-h1 small{display:block;font-size:.42em;font-weight:600;color:var(--ours);
-         letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}
-.lede{font-size:clamp(16px,2.2vw,19px);color:var(--mut);max-width:56ch;margin:0 0 22px}
-.kpis{display:flex;flex-wrap:wrap;gap:26px;margin:26px 0 6px}
-.kpi b{display:block;font-size:26px;font-family:var(--mono);color:var(--ours);line-height:1.2}
-.kpi span{font-size:12.5px;color:var(--mut)}
-.links{display:flex;flex-wrap:wrap;gap:10px;margin:26px 0 0}
-.links a{display:inline-block;padding:8px 15px;border:1px solid var(--line);
-  border-radius:7px;text-decoration:none;color:var(--ink);font-size:14px;
-  font-weight:500;background:var(--panel)}
-.links a:hover{border-color:var(--ours);color:var(--ours)}
-.links a.primary{background:var(--ours);color:#fff;border-color:var(--ours)}
-section{padding:52px 0;border-bottom:1px solid var(--line)}
-h2{font-size:25px;margin:0 0 6px;letter-spacing:-.01em}
-h2 .num{font-family:var(--mono);color:var(--ours);font-size:15px;margin-right:10px}
-.sub{color:var(--mut);max-width:64ch;margin:0 0 26px}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:20px}
-.ctrls{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:20px;margin-bottom:6px}
-label{display:block;font-size:12.5px;color:var(--mut);margin-bottom:7px;font-weight:500}
-label b{color:var(--ink);font-family:var(--mono);font-size:14px}
-input[type=range]{width:100%;accent-color:var(--ours)}
-.verdict{margin-top:16px;padding:13px 15px;border-radius:8px;font-size:14px;
-  border-left:3px solid var(--ours);background:color-mix(in srgb,var(--ours) 7%,transparent)}
-.verdict.good{border-color:var(--sup);background:color-mix(in srgb,var(--sup) 8%,transparent)}
-.verdict.bad{border-color:var(--oracle);background:color-mix(in srgb,var(--oracle) 9%,transparent)}
-svg{display:block;width:100%;height:auto;overflow:visible}
-.ax{stroke:var(--line);stroke-width:1}
-.gr{stroke:var(--line);stroke-width:.6;opacity:.6}
-.tx{fill:var(--mut);font-size:10.5px;font-family:var(--mono)}
-.tt{fill:var(--ink);font-size:12px;font-weight:600}
-table{width:100%;border-collapse:collapse;font-size:13px}
+     font-size:17px;line-height:1.7;-webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:0 24px}
+.narrow{max-width:760px;margin:0 auto}
+
+/* ---- title block ---- */
+.hero{padding:62px 0 34px;text-align:center;border-bottom:1px solid var(--line)}
+.hero h1{font-family:var(--serif);font-size:clamp(28px,4.4vw,42px);line-height:1.22;
+  margin:0 0 6px;font-weight:600;letter-spacing:-.015em}
+.hero .tagline{font-family:var(--serif);font-style:italic;font-size:20px;
+  color:var(--mut);margin:0 0 26px}
+.authors{font-size:17px;margin:0 0 4px}
+.authors a{color:var(--accent);text-decoration:none}
+.affil{font-size:15px;color:var(--mut);margin:0 0 8px}
+.venue{font-size:15px;color:var(--mut);margin:0 0 26px}
+.venue b{color:var(--ink);font-weight:600}
+.btns{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.btns a{display:inline-flex;align-items:center;gap:7px;background:#22262e;color:#fff;
+  padding:9px 19px;border-radius:999px;text-decoration:none;font-size:15px;font-weight:500}
+.btns a:hover{background:var(--accent)}
+.btns a.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.btns a.ghost:hover{border-color:var(--accent);color:var(--accent);background:#fff}
+.btns a.soon{opacity:.45;cursor:not-allowed;pointer-events:none}
+.btns a.soon::after{content:' · soon';font-size:12px;opacity:.8}
+
+/* ---- sections ---- */
+section{padding:46px 0;border-bottom:1px solid var(--line)}
+h2{font-family:var(--serif);font-size:29px;font-weight:600;margin:0 0 18px;
+   letter-spacing:-.01em}
+h3{font-size:17px;font-weight:650;margin:30px 0 8px}
+p{margin:0 0 16px}
+.abstract{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:26px 30px}
+.abstract h2{font-size:21px;text-align:center;margin-bottom:14px}
+.abstract p{font-size:16.5px;margin-bottom:12px}
+figure{margin:26px 0}
+figure img{width:100%;border-radius:9px;border:1px solid var(--line);display:block}
+figcaption{font-size:14.5px;color:var(--mut);margin-top:11px;line-height:1.6}
+figcaption b{color:var(--ink)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin:26px 0}
+.kpi{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:16px;text-align:center}
+.kpi b{display:block;font-size:25px;font-family:var(--mono);color:var(--ours);line-height:1.25}
+.kpi span{font-size:13px;color:var(--mut);line-height:1.4;display:block;margin-top:3px}
+.eq{background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:15px 18px;
+    font-family:var(--mono);font-size:14.5px;overflow-x:auto;margin:16px 0}
+.note{font-size:15px;color:var(--mut);border-left:3px solid var(--line);padding-left:15px;margin:18px 0}
+.callout{background:#fff8e8;border:1px solid #f0dfae;border-left:4px solid var(--warn);
+  border-radius:9px;padding:15px 18px;font-size:15.5px;margin:20px 0}
+.callout.bad{background:#fdf1f0;border-color:#f2cfcb;border-left-color:var(--ours)}
+.callout b{color:var(--ink)}
+table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
 th,td{padding:7px 9px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
-th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);
-   cursor:pointer;user-select:none;font-weight:600}
-th:hover{color:var(--ours)}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.045em;color:var(--mut);font-weight:650}
+th.s{cursor:pointer;user-select:none}
+th.s:hover{color:var(--accent)}
 th:first-child,td:first-child{text-align:left}
-td.v{font-family:var(--mono)}
-tr.ours td{background:color-mix(in srgb,var(--ours) 8%,transparent);font-weight:600}
-.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;vertical-align:middle}
-.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.legend{display:flex;flex-wrap:wrap;gap:15px;margin:14px 0 0;font-size:12.5px;color:var(--mut)}
-.note{font-size:13px;color:var(--mut);margin-top:15px;padding-left:13px;border-left:2px solid var(--line)}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-@media(max-width:720px){.grid2{grid-template-columns:1fr}}
-code{font-family:var(--mono);font-size:.9em;background:color-mix(in srgb,var(--ink) 7%,transparent);
-     padding:1.5px 5px;border-radius:4px}
-pre{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:15px;
-    overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.55}
-pre code{background:none;padding:0}
-footer{padding:38px 0 60px;color:var(--mut);font-size:13.5px}
-.warn{border-left-color:var(--oracle);background:color-mix(in srgb,var(--oracle) 7%,transparent);
-      padding:13px 15px;border-radius:8px;border-left:3px solid var(--oracle);font-size:14px;margin-top:16px}
+td.v{font-family:var(--mono);font-size:13px}
+tbody tr.ours{background:#fdf2f1}
+tbody tr.ours td{font-weight:650}
+tbody tr.grp td{background:var(--soft);font-size:12px;text-transform:uppercase;
+  letter-spacing:.05em;color:var(--mut);font-weight:650}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.tabs{display:flex;gap:6px;margin:0 0 14px;flex-wrap:wrap}
+.tabs button{background:var(--soft);border:1px solid var(--line);color:var(--mut);
+  padding:6px 14px;border-radius:999px;font-size:14px;cursor:pointer;font-family:inherit}
+.tabs button.on{background:#22262e;color:#fff;border-color:#22262e}
+.sim{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:22px}
+.ctrls{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:22px}
+label{display:block;font-size:13.5px;color:var(--mut);margin-bottom:7px}
+label b{color:var(--ink);font-family:var(--mono);font-size:15px}
+input[type=range]{width:100%;accent-color:var(--ours)}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.gr{stroke:var(--line);stroke-width:.7}.ax{stroke:#c8ccd3;stroke-width:1}
+.tx{fill:var(--mut);font-size:10.5px;font-family:var(--mono)}
+.legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:13px;font-size:13.5px;color:var(--mut)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.verdict{margin-top:15px;padding:13px 16px;border-radius:9px;font-size:15px;
+  background:#fff;border:1px solid var(--line);border-left:4px solid var(--accent)}
+.verdict.good{border-left-color:var(--ok)}.verdict.bad{border-left-color:var(--warn)}
+pre{background:#22262e;color:#e6e9ef;border-radius:10px;padding:17px 19px;overflow-x:auto;
+    font-family:var(--mono);font-size:13.5px;line-height:1.6}
+pre .c{color:#8b93a1}
+code{font-family:var(--mono);font-size:.92em;background:var(--soft);padding:2px 6px;
+     border-radius:5px;border:1px solid var(--line)}
+.bib{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:16px 19px;
+     font-family:var(--mono);font-size:13px;white-space:pre-wrap;line-height:1.55}
+footer{padding:36px 0 62px;text-align:center;color:var(--mut);font-size:14.5px}
+footer a{color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:700px){.grid2{grid-template-columns:1fr}body{font-size:16px}}
 </style>
 </head>
 <body>
 
-<header><div class="wrap">
-  <h1><small>ICASSP 2026</small>Adapt to the physics,<br>not to the data.</h1>
-  <p class="lede">A CT denoiser trained on one scanner degrades on another. <b>NoLA</b>
-  repairs it using only unlabelled target sinograms — by estimating the target's
-  Poisson–Gaussian <i>variance law</i> and adapting to that, rather than to a
-  target data distribution.</p>
+<div class="hero"><div class="wrap">
+  <h1>NoLA: Source-Free Noise-Law Adaptation for<br>Cross-System CT Projection Denoising</h1>
+  <p class="tagline">Adapt to the physics, not to the data.</p>
+  <p class="authors">Anonymous Authors</p>
+  <p class="affil">Under review</p>
+  <div class="btns">
+    <!-- Fill these in when the preprint is public. Left as visibly disabled
+         rather than href="#" so the page never ships a dead link. -->
+    <a class="ghost soon" aria-disabled="true" title="Available once the preprint is public">📄 Paper</a>
+    <a class="ghost soon" aria-disabled="true" title="Available once the preprint is public">arXiv</a>
+    <a href="https://github.com/mtliba/nola">💻 Code</a>
+    <a class="ghost" href="#simulator">🎛 Interactive demo</a>
+    <a class="ghost" href="#results">📊 Results</a>
+  </div>
+</div></div>
+
+<section><div class="wrap"><div class="narrow">
+  <div class="abstract">
+    <h2>Abstract</h2>
+    <p>Deep CT denoisers fail when the target acquisition noise differs from the
+    conditions they were trained under. We propose <b>NoLA</b>, a source-free
+    adaptation method for projection-domain CT denoisers that uses only
+    <b>unlabelled target sinograms</b> — no source data, no paired targets, no
+    clean references.</p>
+    <p>NoLA estimates the target signal-dependent Poisson–Gaussian noise law
+    directly from the projections and uses it to guide a local update of the
+    pretrained network through residual-statistics matching and source
+    anchoring. On simulated cross-system transfer from LoDoPaB to Mayo geometry,
+    NoLA improves the frozen source model by <b>2.80 dB</b> and recovers
+    <b>61.7%</b> of the supervised fine-tuning gap. Across controlled noise-law
+    shifts, the adaptation gain is strongly predicted by the source–target law
+    mismatch (ρ = 0.953), while a low-mismatch stress test exposes the limits of
+    residual-statistics-only adaptation.</p>
+  </div>
   <div class="kpis">
     <div class="kpi"><b>+2.80 dB</b><span>over the frozen source model</span></div>
     <div class="kpi"><b>61.7%</b><span>of the supervised gap, no labels</span></div>
     <div class="kpi"><b>+1.85 dB</b><span>over Noise2Inverse, 4/4 patients</span></div>
-    <div class="kpi"><b>0</b><span>labels, source samples, dose tags</span></div>
+    <div class="kpi"><b>ρ = 0.953</b><span>gain vs. law mismatch</span></div>
   </div>
-  <div class="links">
-    <a class="primary" href="https://github.com/mtliba/nola">Code on GitHub</a>
-    <a href="#explorer">Try the law explorer</a>
-    <a href="#results">All results</a>
-    <a href="#failure">Where it fails</a>
-  </div>
-</div></header>
+</div></div></section>
 
-<section id="explorer"><div class="wrap">
-  <h2><span class="num">01</span>Why rescaling cannot work</h2>
-  <p class="sub">Both systems obey one two-parameter law
-  <code>v(y) = a·e<sup>c·y</sup> + b·e<sup>2c·y</sup></code>. The source is purely
-  Poisson, so <b>b = 0 exactly</b> — it lies on the boundary of the family. Any
-  target with electronic noise has b &gt; 0. Move the sliders: no vertical shift
-  of the source curve reproduces a target curve's <i>shape</i>.</p>
-  <div class="panel">
+<section><div class="wrap"><div class="narrow">
+  <h2>The problem</h2>
+  <p>A projection denoiser is trained on one scanner and deployed on another. The
+  photon budget and the detector's electronic noise differ, so the
+  <i>variance–signal relationship</i> the network implicitly learned no longer
+  holds. Only noisy target measurements are available, and the original source
+  data cannot be accessed.</p>
+  <figure>
+    <img src="assets/fig1_motivation.jpg" alt="Source and target noise laws">
+    <figcaption><b>Why rescaling is not enough.</b> (a) Source and target follow
+    different signal-dependent noise laws that cannot be matched by global
+    rescaling. (b) A source-trained denoiser is therefore miscalibrated on the
+    target. (c) The mismatch is visible in the reconstructed spectrum. (d) At
+    adaptation time only the pretrained model and unlabelled target sinograms
+    are available.</figcaption>
+  </figure>
+
+  <h3>One law, two systems</h3>
+  <p>For a post-log projection <code>p</code>, the Poisson–Gaussian model gives
+  <code>Var(p) ≈ e<sup>p</sup>/I₀ + σ<sub>e</sub>²e<sup>2p</sup>/I₀²</code>. Both
+  systems store the same dimensionless line integral, but LoDoPaB divides by
+  <code>MU_MAX</code> and Mayo does not — so harmonising is an <b>exact unit
+  conversion with no free parameter</b>, and in common units both obey:</p>
+  <div class="eq">v(y) = a·e<sup>c·y</sup> + b·e<sup>2c·y</sup>,&nbsp;&nbsp;&nbsp;
+    a = 1/(I₀c²),&nbsp;&nbsp; b = σ<sub>e</sub>²/(I₀²c²),&nbsp;&nbsp; c = 81.35858</div>
+  <p>The source acquisition is purely Poisson, so <b>b = 0 exactly</b> — it lies
+  on the boundary of the family. Any target with electronic noise has b &gt; 0.
+  That is why the target law cannot be reached by rescaling the source law, and
+  why adaptation must <i>identify</i> (a, b) rather than shift a magnitude.</p>
+</div></div></section>
+
+<section id="simulator"><div class="wrap"><div class="narrow">
+  <h2>Try it: the noise-law simulator</h2>
+  <p>Move the target scanner's parameters and watch the two laws separate. The
+  dashed line is the <i>best possible rescaling</i> of the source law — it still
+  cannot follow the target's shape.</p>
+  <div class="sim">
     <div class="ctrls">
       <div><label>Target flux I₀ — <b id="li0">37500</b> photons/bin</label>
         <input type="range" id="i0" min="3.6" max="5.3" step="0.01" value="4.574"></div>
@@ -118,119 +197,236 @@ footer{padding:38px 0 60px;color:var(--mut);font-size:13.5px}
     </div>
     <svg id="lawsvg" viewBox="0 0 720 320" role="img" aria-label="Variance laws"></svg>
     <div class="legend">
-      <span><span class="dot" style="background:var(--none)"></span>source law (b = 0)</span>
-      <span><span class="dot" style="background:var(--ours)"></span>target law</span>
-      <span><span class="dot" style="background:var(--free)"></span>best rescaling of the source</span>
+      <span><span class="dot" style="background:#8c8c8c"></span>source law (b = 0)</span>
+      <span><span class="dot" style="background:#c0392b"></span>target law</span>
+      <span><span class="dot" style="background:#1f5fd0"></span>best rescaling of the source</span>
     </div>
     <div class="verdict" id="verdict"></div>
   </div>
-  <p class="note">D = ⟨|log(v<sub>t</sub>/v<sub>s</sub>)|⟩ is the shift magnitude,
-  averaged over the signal distribution. It is computable from the <i>estimated</i>
-  law and the known source law, so it can be evaluated before adapting — with no
-  labels.</p>
-</div></section>
+  <p class="note"><b>D</b> = ⟨|log(v<sub>t</sub>/v<sub>s</sub>)|⟩ is the shift
+  magnitude over the signal distribution. It is computable from the
+  <i>estimated</i> law and the known source law — with no labels — so it can be
+  checked <i>before</i> deciding to adapt.</p>
+</div></div></section>
 
-<section id="when"><div class="wrap">
-  <h2><span class="num">02</span>When adaptation helps — and when it hurts</h2>
-  <p class="sub">Anatomy, geometry, sampling and reconstruction held fixed; only
-  (I₀, σ<sub>e</sub>) varied over a 4×4 grid. The gain is predicted by the full law
-  mismatch D (ρ = 0.953), not by σ<sub>e</sub> alone (ρ = −0.137, p = 0.61).
-  Every point is a separately adapted and evaluated model.</p>
-  <div class="panel">
-    <svg id="gridsvg" viewBox="0 0 720 360" role="img" aria-label="Gain versus shift magnitude"></svg>
-    <div class="legend">
-      <span><span class="dot" style="background:var(--sup)"></span>adaptation helped</span>
-      <span><span class="dot" style="background:var(--oracle)"></span>adaptation hurt</span>
-      <span>marker size ∝ σ<sub>e</sub></span>
-    </div>
-  </div>
-  <p class="note">The three failures are all low-mismatch cells (D &lt; 1). The two
-  real operating points sit at D = 2.09 (25% dose) and D = 1.05 (10% dose) — which
-  is exactly why the 10% case fails. It is predicted, not anomalous.</p>
+<section><div class="wrap"><div class="narrow">
+  <h2>Method</h2>
+  <figure>
+    <img src="assets/fig2_method.jpg" alt="NoLA framework">
+    <figcaption><b>NoLA.</b> A source-trained projection U-Net is adapted using
+    only unlabelled target sinograms. The target noise law is first estimated
+    from local sinogram statistics, then used to guide adaptation through
+    conditional moment matching, residual decorrelation and source
+    anchoring.</figcaption>
+  </figure>
+  <h3>Estimating the law without labels</h3>
+  <p>A local second difference along the <i>view</i> axis provides a noise
+  witness (differencing across detector bins is biased by sinogram curvature).
+  The signal level is estimated from disjoint neighbouring bins so the variance
+  is not conditioned on the same samples. Samples are grouped into signal bands,
+  the variance estimated robustly by MAD, and the law fitted in log space with
+  a Jensen correction.</p>
+  <h3>The objective</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Term</th><th style="text-align:left">What it constrains</th></tr></thead>
+    <tbody>
+      <tr><td><code>moment</code></td><td style="text-align:left">signal-conditional residual mean and variance match the estimated law</td></tr>
+      <tr><td><code>whiteness</code></td><td style="text-align:left">standardised residual decorrelated over lags 1–5, both axes</td></tr>
+      <tr><td><code>anchor</code></td><td style="text-align:left">relative L2-SP keeps the update local to the source weights</td></tr>
+    </tbody></table></div>
+  <div class="callout"><b>A term we removed.</b> An earlier formulation penalised
+  residual–output orthogonality. That was wrong: for a Gaussian signal the MMSE
+  estimator has <code>Cov(r, ŝ) = α(1−α)Var(y) &gt; 0</code>, so driving it to zero
+  moves the model <i>away</i> from the optimum. It is reported only as an
+  ablation.</div>
+</div></div></section>
+
+<section id="qualitative"><div class="wrap">
+  <h2>Qualitative results</h2>
+  <div class="narrow"><p>All comparisons are on held-out patients that adaptation
+  never saw. Signed error maps are the diagnostic row: residual that looks like
+  noise <i>is</i> noise, whereas visible anatomy is structure the method
+  deleted.</p></div>
+  <figure>
+    <img src="assets/fig3_qualitative_L506_s30.jpg" alt="Qualitative comparison">
+    <figcaption><b>Cross-system transfer on one held-out slice</b> (L506, 25%
+    dose). Rows: reconstruction, magnified ROI, signed error against
+    FBP(clean sinogram) at ±120 HU, and radial noise power spectrum in flat
+    tissue. The source model and AdaBN over-smooth, leaving anatomical
+    boundaries in their error maps. NoLA suppresses these structured errors and
+    approaches supervised fine-tuning. Noise2Inverse instead leaves
+    <i>coherent arcs</i> — angular-undersampling artifacts from reconstructing
+    split view subsets, visible directly as banding in its ROI crop.</figcaption>
+  </figure>
+  <figure>
+    <img src="assets/figS1_gallery_blockA.jpg" alt="Gallery across patients">
+    <figcaption><b>All methods, multiple slices and patients (25% dose).</b> Each
+    row is one held-out slice, each column one method, at a fixed soft-tissue
+    window. Per-panel numbers are that slice's PSNR against its own
+    reference.</figcaption>
+  </figure>
+  <figure>
+    <img src="assets/figS1b_gallery_closeup.jpg" alt="Close-ups and difference maps">
+    <figcaption><b>Close-ups and difference maps.</b> Magnified regions with the
+    signed difference against the reference on a symmetric scale — where
+    over-smoothing and residual structure become visible and the windowed image
+    alone is not decisive.</figcaption>
+  </figure>
 </div></section>
 
 <section id="results"><div class="wrap">
-  <h2><span class="num">03</span>Every metric measured</h2>
-  <p class="sub">232 slices, four held-out patients, means across patients. Click a
-  column to sort. Three reference conventions appear here and
-  <b>must not be read across</b>: PSNR<sub>op</sub>/SSIM<sub>op</sub> use
-  FBP(clean sinogram); the middle block uses the vendor reconstruction; NPS uses a
-  full-dose acquisition through the same operator.</p>
-  <div class="panel scroll"><table id="mtab"><thead></thead><tbody></tbody></table></div>
-  <div class="legend">
-    <span><span class="dot" style="background:var(--none)"></span>no denoising</span>
-    <span><span class="dot" style="background:var(--free)"></span>label-free</span>
-    <span><span class="dot" style="background:var(--ours)"></span>NoLA (ours)</span>
-    <span><span class="dot" style="background:var(--oracle)"></span>oracle law</span>
-    <span><span class="dot" style="background:var(--sup)"></span>supervised on target</span>
+  <h2>Quantitative results</h2>
+  <div class="narrow"><p>232 slices from four held-out patients; means across
+  patients. <b>Three reference conventions appear here and must not be read
+  across.</b> PSNR<sub>op</sub>/SSIM<sub>op</sub> use FBP(clean sinogram), which
+  isolates denoising error from reconstruction mismatch; the middle block uses
+  the vendor reconstruction; NPS is measured against a full-dose acquisition
+  through the same operator.</p></div>
+  <div class="tabs">
+    <button class="on" data-t="main">Headline</button>
+    <button data-t="all">Every metric</button>
+    <button data-t="audit">Residual statistics</button>
   </div>
-  <div class="warn"><b>Two columns go against us, and we report them.</b>
-  Undenoised FBP wins VIF outright — VIF penalises blur far more than noise, so on
-  this data it ranks doing nothing above every denoiser. And the retrained
-  supervised RED-CNN takes every pixel metric while posting the <i>worst</i>
-  texture score of any method (NPS shape 2.43 vs NoLA's 0.89), keeping only 17% of
-  full-dose noise power. Pixel metrics reward smoothing.</div>
+  <div class="scroll"><table id="mtab"><thead></thead><tbody></tbody></table></div>
+  <div class="legend" id="tablegend"></div>
+  <div class="narrow">
+  <div class="callout"><b>Two columns go against us, and we report them.</b>
+  Undenoised FBP wins VIF outright — VIF penalises blur far more than noise, so
+  on this data it ranks doing nothing above every denoiser. And a supervised
+  RED-CNN retrained on this split takes every pixel metric while posting the
+  <i>worst</i> texture score of any method (NPS shape 2.43 vs NoLA's 0.89),
+  keeping only 17% of full-dose noise power. Pixel metrics reward smoothing,
+  which is why we report a residual audit rather than resting on a pixel
+  table.</div>
+  <p>Against <b>Noise2Inverse</b> — the like-for-like label-free baseline,
+  trained on the same six target patients and evaluated on the same held-out
+  four — NoLA wins on all four patients individually (+3.00, +1.92, +1.76,
+  +0.74 dB) and on 80.6% of slices, with lower LPIPS on <b>100%</b> of them. We
+  ran it at both K = 2 and the authors' default K = 4, and compare against the
+  stronger (K = 2 by 5 dB).</p>
+  </div>
 </div></section>
 
-<section id="whiteness"><div class="wrap">
-  <h2><span class="num">04</span>An ablation that beats us</h2>
-  <p class="sub">Removing NoLA's whiteness term <i>improves</i> every full-reference
-  metric and degrades only texture and residual decorrelation. So we swept its
-  weight to find out whether that was a badly chosen constant or a real frontier.</p>
-  <div class="panel"><div class="grid2">
-    <svg id="sw1" viewBox="0 0 340 260" role="img" aria-label="Cost in PSNR"></svg>
-    <svg id="sw2" viewBox="0 0 340 260" role="img" aria-label="Residual autocorrelation"></svg>
+<section><div class="wrap"><div class="narrow">
+  <h2>When does adaptation help?</h2>
+  <p>Holding anatomy, geometry, sampling and reconstruction fixed and varying
+  only (I₀, σ<sub>e</sub>) over a 4×4 grid: the gain is predicted by the full law
+  mismatch D (ρ = 0.953), not by σ<sub>e</sub> alone (ρ = −0.137, p = 0.61).</p>
+  <div class="sim"><svg id="gridsvg" viewBox="0 0 720 350" role="img"></svg>
+    <div class="legend">
+      <span><span class="dot" style="background:#1e7d4f"></span>adaptation helped</span>
+      <span><span class="dot" style="background:#b8860b"></span>adaptation hurt</span>
+      <span>marker size ∝ σ<sub>e</sub></span>
+    </div></div>
+  <p class="note">All three failures are low-mismatch cells (D &lt; 1). Since D
+  needs no labels, this is a usable decision rule <i>before</i> adapting rather
+  than an observation afterwards.</p>
+</div></div></section>
+
+<section id="failure"><div class="wrap"><div class="narrow">
+  <h2>Where it fails</h2>
+  <p>At 10% dose NoLA reaches <b>36.68 dB against the frozen source model's
+  40.55</b> — worse than doing nothing. This is <i>not</i> estimation error: the
+  oracle-law variant fails identically (38.35 dB). It is the regime our own
+  criterion flags, at D = 1.05 against D = 2.09 at 25% dose. Noise2Inverse,
+  which shares none of this objective, also fails there (36.96 dB).</p>
+  <div class="sim"><svg id="auditsvg" viewBox="0 0 720 300" role="img"></svg></div>
+  <div class="callout bad"><b>The objective is satisfied and the image is worse.</b>
+  At 10% dose NoLA attains the <i>best</i> law match (0.106) and the lowest
+  residual autocorrelation (0.012) of any method — better than supervised
+  fine-tuning — while producing the worst reconstruction. Matching the target's
+  residual statistics does not identify the clean signal. That is the method's
+  scope, stated as a limit rather than discovered by a reader.</div>
+  <figure>
+    <img src="assets/figS3_dose10.jpg" alt="10% dose failure">
+    <figcaption><b>The failure, shown rather than described.</b> Every adapted
+    variant produces radial streak artifacts absent from the source model, from
+    supervised fine-tuning, and from Noise2Inverse, which degrades at this dose
+    without producing them. We tested two mechanisms and falsified both; the
+    cause remains open.</figcaption>
+  </figure>
+</div></div></section>
+
+<section><div class="wrap"><div class="narrow">
+  <h2>Further analysis</h2>
+  <h3>An ablation that beats us</h3>
+  <p>Removing NoLA's whiteness term <i>improves</i> every full-reference metric
+  and degrades only texture and residual decorrelation. We swept its weight to
+  find out whether that was a badly chosen constant or a real frontier.</p>
+  <div class="sim"><div class="grid2">
+    <svg id="sw1" viewBox="0 0 340 250" role="img"></svg>
+    <svg id="sw2" viewBox="0 0 340 250" role="img"></svg>
   </div></div>
   <p class="note">The cost is a <b>step, not a slope</b>: switching the term on at
   all costs ~0.2 dB and raising the weight tenfold costs no more, while
-  decorrelation saturates by λ = 0.5. No weight buys it cheaply. There is a reason:
-  the MMSE residual is provably <i>not</i> white (the Wiener residual spectrum
-  σ⁴/(P<sub>s</sub>(f)+σ²) is not flat), so enforcing whiteness must move away from
-  MMSE — the same argument that made us drop the orthogonality term. We keep λ = 1,
-  which is the most efficient point measured, and say plainly that a reader
-  optimising PSNR alone should switch it off.</p>
-</div></section>
+  decorrelation saturates by λ = 0.5. There is a reason no weight escapes it —
+  the Wiener residual has spectrum σ⁴/(P<sub>s</sub>(f)+σ²), which is not flat,
+  so the MMSE residual is not white either and enforcing whiteness must move
+  away from MMSE. We keep λ = 1, the most efficient point measured, and say
+  plainly that a reader optimising PSNR alone should switch it off.</p>
+  <h3>Estimator accuracy</h3>
+  <p>From unlabelled sinograms of the six adaptation patients, relative error on
+  (I₀, σ<sub>e</sub>) is (4.3%, 7.9%) at 25% dose, (2.9%, 4.5%) at 10% and
+  (2.4%, 5.7%) at 5%. Supplying the <i>true</i> law instead of the estimate is
+  worth only 0.15 dB — the estimator is not the bottleneck.</p>
+  <figure>
+    <img src="assets/fig7_identifiability.jpg" alt="Identifiability of sigma_e">
+    <figcaption><b>Why σ<sub>e</sub> is the harder parameter.</b> The electronic
+    term is 0.27% of the Poisson term through air and comparable to it only
+    through the densest rays, so it is constrained by a small tail of the
+    data.</figcaption>
+  </figure>
+  <figure>
+    <img src="assets/fig5_objective_vs_image.jpg" alt="Objective versus image">
+    <figcaption><b>Satisfying the objective is not the same as improving the
+    image.</b> At 25% dose the two are not even monotonically related; at 10%
+    the relationship inverts outright.</figcaption>
+  </figure>
+</div></div></section>
 
-<section id="failure"><div class="wrap">
-  <h2><span class="num">05</span>Where it fails, and why that matters</h2>
-  <p class="sub">At 10% dose NoLA reaches 36.68 dB against the source model's 40.55 —
-  worse than doing nothing. It is not estimation error: the oracle-law variant fails
-  identically (38.35 dB). The residual audit shows something sharper.</p>
-  <div class="panel">
-    <svg id="auditsvg" viewBox="0 0 720 300" role="img" aria-label="Objective versus image quality"></svg>
-    <div class="legend"><span>← better law match</span><span>higher PSNR ↑</span></div>
-  </div>
-  <p class="note">At 25% dose the objective and the image are not even monotonically
-  related — supervised fine-tuning has the <i>worst</i> law match and the best image.
-  At 10% the relationship inverts outright: NoLA attains the best law match (0.106)
-  and the lowest residual autocorrelation (0.012) of any method, better than
-  supervised fine-tuning, <b>while producing the worst image</b>. Matching the
-  target's residual statistics does not identify the clean signal. That is the
-  paper's own scope statement, made visible.</p>
-</div></section>
-
-<section id="run"><div class="wrap">
-  <h2><span class="num">06</span>Run it yourself</h2>
-  <p class="sub">The demo needs no data download and no ASTRA. It builds a phantom,
-  acquires it under two noise laws, trains a source denoiser, estimates the target
-  law from unlabelled sinograms and adapts — calling the same modules used for every
-  number above.</p>
-<pre><code>git clone https://github.com/mtliba/nola && cd nola
+<section id="code"><div class="wrap"><div class="narrow">
+  <h2>Code</h2>
+  <p>The reference implementation is self-contained — numpy and torch only, with
+  the tomography stack needed just for the real-data path. The demo needs
+  <b>no data download and no ASTRA</b>, and runs on a laptop CPU.</p>
+<pre><span class="c"># end to end on synthetic data, ~6 minutes on a CPU</span>
+git clone https://github.com/mtliba/nola &amp;&amp; cd nola
 pip install -e ".[demo]"
-python examples/demo.py</code></pre>
-  <p class="note">Reproducing the paper's numbers needs LoDoPaB-CT and the Mayo-2016
-  LDCT Grand Challenge data, which we cannot redistribute. See the README for the
-  full pipeline — and for the warning that <code>astra_cpu</code> and
-  <code>astra_cuda</code> differ by more than a decibel, so a single table must
-  never mix them.</p>
-</div></section>
+python examples/demo.py
+
+<span class="c"># it prints the criterion before adapting:</span>
+<span class="c">#   shift magnitude D = 2.18   -&gt; adaptation should help</span>
+<span class="c"># and this reproduces the failure on purpose (D = 0.50):</span>
+python examples/demo.py --target-i0 8000 --target-sigma-e 12</pre>
+  <p class="note">The demo calls the same <code>nola.lawfit</code> and
+  <code>nola.adapt</code> used for every number on this page, so it exercises the
+  shipped code rather than a simplified restatement of it. Reproducing the paper
+  needs LoDoPaB-CT and the Mayo-2016 LDCT Grand Challenge data, which we cannot
+  redistribute — see the README.</p>
+  <div class="callout"><b>If you reproduce this, mind the backend.</b>
+  <code>astra_cpu</code> and <code>astra_cuda</code> reconstruct the same
+  sinogram differently enough to shift PSNR by 1.2 dB on average and 2.9 dB at
+  worst, always in the same direction. A single table must never mix them; our
+  evaluation records the backend in every result and refuses to combine
+  them.</div>
+</div></div></section>
+
+<section><div class="wrap"><div class="narrow">
+  <h2>BibTeX</h2>
+  <div class="bib" id="bib">@inproceedings{nola2026,
+  title  = {NoLA: Source-Free Noise-Law Adaptation for Cross-System
+            CT Projection Denoising},
+  author = {Anonymous Authors},
+  year   = {2026},
+  note   = {Under review}
+}</div>
+</div></div></section>
 
 <footer><div class="wrap">
-  <p><b>NoLA — Source-Free Noise-Law Adaptation for Cross-System CT Projection
-  Denoising.</b> ICASSP 2026 submission.</p>
-  <p>Code MIT-licensed. Datasets remain under their own licences and are not
-  redistributed. Every number on this page is generated from the evaluation
-  outputs by <code>docs/build_site.py</code>, not typed in by hand.</p>
+  <p>Every number on this page is generated from the evaluation outputs by
+  <code>docs/build_site.py</code> — none of it is typed in by hand.</p>
+  <p><a href="https://github.com/mtliba/nola">Code</a> · MIT licensed.
+  Datasets remain under their own licences and are not redistributed.</p>
 </div></footer>
 
 <script>
@@ -238,194 +434,200 @@ const DATA = {"grid": {"cells": [{"i0": 7500.0, "sigma_e": 4.999999999999999, "s
 (function(){
 const NS="http://www.w3.org/2000/svg";
 const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in(a||{}))e.setAttribute(k,a[k]);return e;};
-const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-const C_M=81.35858;
+const C_M=81.35858, GREY="#8c8c8c", OURS="#c0392b", BLUE="#1f5fd0",
+      OK="#1e7d4f", WARN="#b8860b";
 
-/* ---------- 01 law explorer ------------------------------------------- */
+/* -------- simulator (kept: the one thing that cannot exist in print) --- */
 const SRC_I0=4096, sig=document.getElementById("lawsvg");
-const lawA=(i0)=>1/(i0*C_M*C_M), lawB=(i0,se)=>se*se/(i0*i0*C_M*C_M);
-function v(y,a,b){return a*Math.exp(C_M*y)+b*Math.exp(2*C_M*y);}
-
+const lawA=i0=>1/(i0*C_M*C_M), lawB=(i0,se)=>se*se/(i0*i0*C_M*C_M);
+const v=(y,a,b)=>a*Math.exp(C_M*y)+b*Math.exp(2*C_M*y);
 function drawLaw(){
-  const i0=Math.pow(10,+document.getElementById("i0").value);
-  const se=+document.getElementById("se").value;
+  const i0=Math.pow(10,+document.getElementById("i0").value),
+        se=+document.getElementById("se").value;
   document.getElementById("li0").textContent=Math.round(i0).toLocaleString();
   document.getElementById("lse").textContent=se.toFixed(1);
-  const as=lawA(SRC_I0), bs=0, at=lawA(i0), bt=lawB(i0,se);
-  const W=720,H=320,L=64,R=16,T=14,B=42;
+  const as=lawA(SRC_I0),bs=0,at=lawA(i0),bt=lawB(i0,se);
+  const W=720,H=320,L=66,R=16,T=14,B=44,N=140;
   sig.textContent="";
-  // y range in harmonised units: 0 .. 5.8/c_M, the real target's span
-  const ys=[],N=140; for(let k=0;k<N;k++) ys.push(k/(N-1)*5.8/C_M);
-  const vs=ys.map(y=>v(y,as,bs)), vt=ys.map(y=>v(y,at,bt));
-  // best pure rescaling of the source: match at the signal-weighted centre
-  const k=vt[Math.floor(N*0.55)]/vs[Math.floor(N*0.55)];
-  const vr=vs.map(x=>x*k);
+  const ys=[];for(let k=0;k<N;k++)ys.push(k/(N-1)*5.8/C_M);
+  const vs=ys.map(y=>v(y,as,bs)),vt=ys.map(y=>v(y,at,bt));
+  const k=vt[Math.floor(N*0.55)]/vs[Math.floor(N*0.55)],vr=vs.map(x=>x*k);
   const all=vs.concat(vt).concat(vr).filter(x=>x>0);
-  const lo=Math.log10(Math.min(...all)), hi=Math.log10(Math.max(...all));
-  const X=i=>L+(W-L-R)*i/(N-1), Y=val=>T+(H-T-B)*(1-(Math.log10(val)-lo)/(hi-lo));
-  for(let g=Math.ceil(lo);g<=Math.floor(hi);g++){
-    const yy=Y(Math.pow(10,g));
+  const lo=Math.log10(Math.min(...all)),hi=Math.log10(Math.max(...all));
+  const X=i=>L+(W-L-R)*i/(N-1),Y=q=>T+(H-T-B)*(1-(Math.log10(q)-lo)/(hi-lo));
+  for(let g=Math.ceil(lo);g<=Math.floor(hi);g++){const yy=Y(Math.pow(10,g));
     sig.appendChild(el("line",{x1:L,x2:W-R,y1:yy,y2:yy,class:"gr"}));
-    const t=el("text",{x:L-8,y:yy+3,class:"tx","text-anchor":"end"});t.textContent="1e"+g;sig.appendChild(t);
-  }
+    const t=el("text",{x:L-8,y:yy+3,class:"tx","text-anchor":"end"});t.textContent="1e"+g;sig.appendChild(t);}
   sig.appendChild(el("line",{x1:L,x2:W-R,y1:H-B,y2:H-B,class:"ax"}));
-  const path=(arr,col,dash)=>{
-    let d="";arr.forEach((val,i)=>{d+=(i?"L":"M")+X(i)+" "+Y(val);});
-    sig.appendChild(el("path",{d:d,fill:"none",stroke:col,"stroke-width":dash?1.6:2.4,
-      "stroke-dasharray":dash||"", "stroke-linejoin":"round"}));};
-  path(vs,css("--none")); path(vr,css("--free"),"5 4"); path(vt,css("--ours"));
-  const xl=el("text",{x:(L+W-R)/2,y:H-10,class:"tx","text-anchor":"middle"});
-  xl.textContent="line integral p = c·y   (0 → 5.8, the real target's span)";sig.appendChild(xl);
+  const path=(arr,col,dash)=>{let d="";arr.forEach((q,i)=>{d+=(i?"L":"M")+X(i)+" "+Y(q);});
+    sig.appendChild(el("path",{d:d,fill:"none",stroke:col,"stroke-width":dash?1.7:2.6,
+      "stroke-dasharray":dash||"","stroke-linejoin":"round"}));};
+  path(vs,GREY);path(vr,BLUE,"6 4");path(vt,OURS);
+  [[4,"p = 0 (air)"],[N-6,"p = 5.8 (densest ray)"]].forEach(([i,lab],j)=>{
+    const t=el("text",{x:X(i),y:H-B+16,class:"tx","text-anchor":j?"end":"start"});
+    t.textContent=lab;sig.appendChild(t);});
   const yl=el("text",{x:14,y:H/2,class:"tx","text-anchor":"middle",
-    transform:"rotate(-90 14 "+(H/2)+")"});yl.textContent="variance v(y)";sig.appendChild(yl);
-  // shift magnitude D, signal-weighted (weight ~ typical attenuation profile)
-  let D=0,wsum=0;
-  ys.forEach((y,i)=>{const w=Math.exp(-Math.pow((C_M*y-1.9)/1.5,2));
-    D+=w*Math.abs(Math.log(vt[i]/vs[i]));wsum+=w;});
-  D/=wsum;
-  const ratio=vt.map((x,i)=>x/vs[i]);
-  const spread=Math.max(...ratio)/Math.min(...ratio);
+    transform:"rotate(-90 14 "+(H/2)+")"});yl.textContent="noise variance";sig.appendChild(yl);
+  let D=0,ws=0;ys.forEach((y,i)=>{const w=Math.exp(-Math.pow((C_M*y-1.9)/1.5,2));
+    D+=w*Math.abs(Math.log(vt[i]/vs[i]));ws+=w;});D/=ws;
+  const ratio=vt.map((x,i)=>x/vs[i]),spread=Math.max(...ratio)/Math.min(...ratio);
   const vd=document.getElementById("verdict");
   vd.className="verdict "+(D>1.3?"good":(D<0.9?"bad":""));
-  vd.innerHTML="<b>D = "+D.toFixed(2)+"</b> — "+
+  vd.innerHTML="<b>Shift magnitude D = "+D.toFixed(2)+"</b> — "+
     (D>1.3?"large mismatch: adaptation is expected to help.":
-     D<0.9?"low mismatch: the grid shows adaptation is unreliable here, and can hurt.":
-     "borderline. The 10% dose case sits near here, at D = 1.05, and fails.")+
-    "<br><span style='color:var(--mut)'>The dashed line is the best possible "+
-    "<i>rescaling</i> of the source law. It still misses the target by a factor of "+
-    spread.toFixed(1)+" across the signal range, because rescaling cannot change shape.</span>";
+     D<0.9?"low mismatch: adaptation is unreliable here and can hurt.":
+     "borderline — the 10% dose case that fails sits at D = 1.05.")+
+    "<br><span style='color:var(--mut);font-size:14px'>The dashed line is the best "+
+    "possible <i>rescaling</i> of the source law. It still misses the target by a "+
+    "factor of "+spread.toFixed(1)+" across the signal range, because rescaling "+
+    "cannot change shape.</span>";
 }
 ["i0","se"].forEach(id=>document.getElementById(id).addEventListener("input",drawLaw));
 
-/* ---------- 02 grid ---------------------------------------------------- */
+/* -------- grid ---------------------------------------------------------- */
 function drawGrid(){
-  const s=document.getElementById("gridsvg"),W=720,H=360,L=64,R=20,T=16,B=48;
+  const s=document.getElementById("gridsvg"),W=720,H=350,L=64,R=20,T=16,B=46;
   s.textContent="";
-  const c=DATA.grid.cells, xs=c.map(d=>d.shift), ysv=c.map(d=>d.delta_psnr);
-  const x0=0,x1=Math.max(...xs)*1.06,y0=Math.min(...ysv)-.5,y1=Math.max(...ysv)+.5;
-  const X=v=>L+(W-L-R)*(v-x0)/(x1-x0), Y=v=>T+(H-T-B)*(1-(v-y0)/(y1-y0));
-  for(let g=Math.ceil(y0);g<=Math.floor(y1);g++){
-    const yy=Y(g);s.appendChild(el("line",{x1:L,x2:W-R,y1:yy,y2:yy,class:"gr"}));
+  const c=DATA.grid.cells,xs=c.map(d=>d.shift),yv=c.map(d=>d.delta_psnr);
+  const x1=Math.max(...xs)*1.06,y0=Math.min(...yv)-.5,y1=Math.max(...yv)+.5;
+  const X=q=>L+(W-L-R)*q/x1,Y=q=>T+(H-T-B)*(1-(q-y0)/(y1-y0));
+  for(let g=Math.ceil(y0);g<=Math.floor(y1);g++){const yy=Y(g);
+    s.appendChild(el("line",{x1:L,x2:W-R,y1:yy,y2:yy,class:"gr"}));
     const t=el("text",{x:L-8,y:yy+3,class:"tx","text-anchor":"end"});t.textContent=g;s.appendChild(t);}
   s.appendChild(el("line",{x1:L,x2:W-R,y1:Y(0),y2:Y(0),class:"ax","stroke-width":1.4}));
   [0.5,1,1.5,2,2.5].forEach(g=>{const xx=X(g);
     s.appendChild(el("line",{x1:xx,x2:xx,y1:T,y2:H-B,class:"gr"}));
     const t=el("text",{x:xx,y:H-B+16,class:"tx","text-anchor":"middle"});t.textContent=g;s.appendChild(t);});
-  // the two real operating points
   [[2.09,"25% dose"],[1.05,"10% dose"]].forEach(([d,lab])=>{
-    s.appendChild(el("line",{x1:X(d),x2:X(d),y1:T,y2:H-B,stroke:css("--ours"),
-      "stroke-width":1,"stroke-dasharray":"4 4",opacity:.6}));
-    const t=el("text",{x:X(d)+5,y:T+12,class:"tx",fill:css("--ours")});t.textContent=lab;s.appendChild(t);});
-  c.forEach(d=>{
-    const good=d.delta_psnr>0, r=4+d.sigma_e*0.28;
-    const cir=el("circle",{cx:X(d.shift),cy:Y(d.delta_psnr),r:r,
-      fill:good?css("--sup"):css("--oracle"),opacity:.82,stroke:css("--panel"),"stroke-width":1.4});
-    const ti=el("title");ti.textContent="I0 = "+d.i0.toLocaleString()+", σe = "+d.sigma_e.toFixed(0)+
-      "  →  D = "+d.shift.toFixed(2)+",  ΔPSNR = "+d.delta_psnr.toFixed(2)+" dB";
-    cir.appendChild(ti);s.appendChild(cir);});
+    s.appendChild(el("line",{x1:X(d),x2:X(d),y1:T,y2:H-B,stroke:OURS,
+      "stroke-width":1,"stroke-dasharray":"4 4",opacity:.55}));
+    const t=el("text",{x:X(d)+5,y:T+12,class:"tx",fill:OURS});t.textContent=lab;s.appendChild(t);});
+  c.forEach(d=>{const good=d.delta_psnr>0;
+    const ci=el("circle",{cx:X(d.shift),cy:Y(d.delta_psnr),r:4+d.sigma_e*0.28,
+      fill:good?OK:WARN,opacity:.8,stroke:"#fff","stroke-width":1.4});
+    const ti=el("title");ti.textContent="I0 = "+d.i0.toLocaleString()+", σe = "+
+      d.sigma_e.toFixed(0)+"  →  D = "+d.shift.toFixed(2)+",  ΔPSNR = "+
+      d.delta_psnr.toFixed(2)+" dB";ci.appendChild(ti);s.appendChild(ci);});
   const xl=el("text",{x:(L+W-R)/2,y:H-10,class:"tx","text-anchor":"middle"});
   xl.textContent="shift magnitude  D = ⟨|log(v_t / v_s)|⟩";s.appendChild(xl);
   const yl=el("text",{x:14,y:H/2,class:"tx","text-anchor":"middle",
     transform:"rotate(-90 14 "+(H/2)+")"});yl.textContent="ΔPSNR from adaptation (dB)";s.appendChild(yl);
 }
 
-/* ---------- 03 metrics table ------------------------------------------ */
-const COLS=[["name","method",null],["psnr_op","PSNR_op",1],["ssim_op","SSIM_op",1],
+/* -------- tables -------------------------------------------------------- */
+const MAIN=[["name","Method",null],["psnr_op","PSNR_op",1],["dpsnr","ΔPSNR",1],
+  ["ssim_op","SSIM_op",1],["law","Law err.",-1],["rho","max|ρ|",-1]];
+const ALL=[["name","Method",null],["psnr_op","PSNR_op",1],["ssim_op","SSIM_op",1],
   ["psnr","PSNR",1],["ssim","SSIM",1],["ms_ssim","MS-SSIM",1],["vif","VIF",1],
   ["gmsd","GMSD",-1],["lpips","LPIPS",-1],["dists","DISTS",-1],
   ["fd_nps_shape_distance","NPS shape",-1],["fd_nps_power_ratio","NPS power",0]];
-let sortKey="psnr_op",sortDir=-1;
+const AUD=[["name","Method",null],["law","Law err.",-1],["rho","max|ρ|",-1],["psnr","PSNR_op",1]];
+const STAT={"Source-only":[0.494,0.4067],"AdaBN":[0.354,0.2816],"NoLA":[0.253,0.0238],
+  "Supervised FT":[0.544,0.0707],"-whiteness":[0.213,0.0997]};
+const CLSCOL={none:GREY,labelfree:BLUE,ours:OURS,oracle:WARN,supervised:OK,ablation:"#8892a0"};
+let mode="main",sortKey="psnr_op",sortDir=-1;
+function rowsFor(){
+  const src=(DATA.metrics||[]).map(r=>{
+    const o=Object.assign({},r), s=STAT[r.name];
+    o.law=s?s[0]:null; o.rho=s?s[1]:null;
+    const base=DATA.metrics.find(x=>x.name==="Source-only");
+    o.dpsnr=(base&&r.psnr_op!=null)?+(r.psnr_op-base.psnr_op).toFixed(2):null;
+    return o;});
+  if(mode==="main")return src.filter(r=>["FBP","Source-only","AdaBN",
+    "Noise2Inverse (K=2)","NoLA","NoLA oracle law","Supervised FT"].includes(r.name));
+  if(mode==="audit")return DATA.audit["25"].map(d=>({name:d.n,law:d.law,rho:d.rho,
+    psnr:d.psnr,cls:d.n==="NoLA"?"ours":(d.n==="Supervised FT"?"supervised":"labelfree")}));
+  return src;
+}
 function drawTable(){
+  const cols=mode==="main"?MAIN:(mode==="audit"?AUD:ALL);
   const t=document.getElementById("mtab");
-  t.querySelector("thead").innerHTML="<tr>"+COLS.map(c=>
-    "<th data-k='"+c[0]+"'>"+c[1]+(c[2]===1?" ↑":c[2]===-1?" ↓":"")+"</th>").join("")+"</tr>";
-  const best={};
-  COLS.forEach(c=>{if(!c[2])return;
-    const vals=DATA.metrics.filter(r=>r[c[0]]!=null).map(r=>r[c[0]]);
-    if(vals.length)best[c[0]]=c[2]===1?Math.max(...vals):Math.min(...vals);});
-  const rows=DATA.metrics.slice().sort((a,b)=>{
-    if(sortKey==="name")return sortDir*a.name.localeCompare(b.name);
-    return sortDir*((a[sortKey]??-1e9)-(b[sortKey]??-1e9));});
-  const col={none:"--none",labelfree:"--free",ours:"--ours",oracle:"--oracle",
-             supervised:"--sup",ablation:"--mut"};
+  t.querySelector("thead").innerHTML="<tr>"+cols.map(c=>
+    "<th class='s' data-k='"+c[0]+"'>"+c[1]+(c[2]===1?" ↑":c[2]===-1?" ↓":"")+"</th>").join("")+"</tr>";
+  const rows=rowsFor(), best={};
+  cols.forEach(c=>{if(!c[2])return;const v=rows.filter(r=>r[c[0]]!=null).map(r=>r[c[0]]);
+    if(v.length)best[c[0]]=c[2]===1?Math.max(...v):Math.min(...v);});
+  rows.sort((a,b)=>sortKey==="name"?sortDir*a.name.localeCompare(b.name)
+    :sortDir*((a[sortKey]??-1e9)-(b[sortKey]??-1e9)));
   t.querySelector("tbody").innerHTML=rows.map(r=>"<tr"+(r.cls==="ours"?" class='ours'":"")+">"+
-    COLS.map(c=>{
-      if(c[0]==="name")return "<td><span class='dot' style='background:var("+
-        (col[r.cls]||"--mut")+")'></span>"+r.name+"</td>";
-      const v=r[c[0]];
-      if(v==null)return "<td class='v' style='color:var(--mut)'>—</td>";
-      const dec=c[0].startsWith("psnr")?2:(c[0].indexOf("nps")>=0?3:4);
-      const isBest=best[c[0]]!=null&&Math.abs(v-best[c[0]])<1e-9;
-      return "<td class='v'"+(isBest?" style='font-weight:700;color:var(--ours)'":"")+">"+
-        v.toFixed(dec)+"</td>";}).join("")+"</tr>").join("");
+    cols.map(c=>{
+      if(c[0]==="name")return "<td><span class='dot' style='background:"+
+        (CLSCOL[r.cls]||"#8892a0")+"'></span>"+r.name+"</td>";
+      const q=r[c[0]];
+      if(q==null)return "<td class='v' style='color:#a8b0bb'>—</td>";
+      const dec=(c[0]==="psnr_op"||c[0]==="psnr"||c[0]==="dpsnr")?2:
+                (c[0]==="law"||c[0].indexOf("nps")>=0?3:4);
+      const bst=best[c[0]]!=null&&Math.abs(q-best[c[0]])<1e-9;
+      const sgn=(c[0]==="dpsnr"&&q>0)?"+":"";
+      return "<td class='v'"+(bst?" style='font-weight:700;color:"+OURS+"'":"")+">"+
+        sgn+q.toFixed(dec)+"</td>";}).join("")+"</tr>").join("");
   t.querySelectorAll("th").forEach(th=>th.onclick=()=>{
     const k=th.dataset.k;sortDir=(k===sortKey)?-sortDir:-1;sortKey=k;drawTable();});
+  document.getElementById("tablegend").innerHTML=
+    [["no denoising",GREY],["label-free",BLUE],["NoLA (ours)",OURS],
+     ["oracle law",WARN],["supervised on target",OK]].map(([l,c])=>
+      "<span><span class='dot' style='background:"+c+"'></span>"+l+"</span>").join("");
 }
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on");mode=b.dataset.t;
+  sortKey=mode==="audit"?"law":"psnr_op";sortDir=mode==="audit"?1:-1;drawTable();});
 
-/* ---------- 04 whiteness sweep ---------------------------------------- */
+/* -------- sweep + audit ------------------------------------------------- */
 function line(id,key,ylab,col,fmt){
-  const s=document.getElementById(id),W=340,H=260,L=56,R=14,T=16,B=44;
+  const s=document.getElementById(id),W=340,H=250,L=58,R=14,T=18,B=42;
   s.textContent="";
-  const p=DATA.sweep,xs=p.map(d=>d.w),ys=p.map(d=>d[key]);
-  const y0=Math.min(...ys),y1=Math.max(...ys),pad=(y1-y0)*0.18||1;
-  const X=v=>L+(W-L-R)*v, Y=v=>T+(H-T-B)*(1-(v-(y0-pad))/((y1+pad)-(y0-pad)));
-  [0,0.25,0.5,0.75,1].forEach(g=>{
-    s.appendChild(el("line",{x1:X(g),x2:X(g),y1:T,y2:H-B,class:"gr"}));
+  const p=DATA.sweep,ys=p.map(d=>d[key]);
+  const y0=Math.min(...ys),y1=Math.max(...ys),pad=(y1-y0)*0.2||1;
+  const X=q=>L+(W-L-R)*q,Y=q=>T+(H-T-B)*(1-(q-(y0-pad))/((y1+pad)-(y0-pad)));
+  [0,0.25,0.5,0.75,1].forEach(g=>{s.appendChild(el("line",{x1:X(g),x2:X(g),y1:T,y2:H-B,class:"gr"}));
     const t=el("text",{x:X(g),y:H-B+15,class:"tx","text-anchor":"middle"});t.textContent=g;s.appendChild(t);});
-  [y0,(y0+y1)/2,y1].forEach(g=>{
-    const t=el("text",{x:L-7,y:Y(g)+3,class:"tx","text-anchor":"end"});t.textContent=fmt(g);s.appendChild(t);
+  [y0,(y0+y1)/2,y1].forEach(g=>{const t=el("text",{x:L-7,y:Y(g)+3,class:"tx","text-anchor":"end"});
+    t.textContent=fmt(g);s.appendChild(t);
     s.appendChild(el("line",{x1:L,x2:W-R,y1:Y(g),y2:Y(g),class:"gr"}));});
   let d="";p.forEach((q,i)=>{d+=(i?"L":"M")+X(q.w)+" "+Y(q[key]);});
-  s.appendChild(el("path",{d:d,fill:"none",stroke:col,"stroke-width":2.2}));
+  s.appendChild(el("path",{d:d,fill:"none",stroke:col,"stroke-width":2.3}));
   p.forEach(q=>{const c=el("circle",{cx:X(q.w),cy:Y(q[key]),r:q.w===1?5.5:4,
-    fill:q.w===1?css("--ours"):col,stroke:css("--panel"),"stroke-width":1.5});
+    fill:q.w===1?OURS:col,stroke:"#fff","stroke-width":1.5});
     const ti=el("title");ti.textContent="λ = "+q.w+"  →  "+fmt(q[key]);c.appendChild(ti);s.appendChild(c);});
-  const tt=el("text",{x:L,y:10,class:"tt"});tt.textContent=ylab;s.appendChild(tt);
-  const xl=el("text",{x:(L+W-R)/2,y:H-8,class:"tx","text-anchor":"middle"});
+  const tt=el("text",{x:L,y:11,class:"tx",style:"font-size:12px;fill:var(--ink)"});
+  tt.textContent=ylab;s.appendChild(tt);
+  const xl=el("text",{x:(L+W-R)/2,y:H-7,class:"tx","text-anchor":"middle"});
   xl.textContent="whiteness weight λ";s.appendChild(xl);
 }
-
-/* ---------- 05 objective vs image ------------------------------------- */
 function drawAudit(){
-  const s=document.getElementById("auditsvg"),W=720,H=300,L=62,R=150,T=18,B=46;
+  const s=document.getElementById("auditsvg"),W=720,H=300,L=62,R=155,T=18,B=46;
   s.textContent="";
   const all=DATA.audit["25"].concat(DATA.audit["10"]);
-  const x0=0,x1=Math.max(...all.map(d=>d.law))*1.12;
+  const x1=Math.max(...all.map(d=>d.law))*1.12;
   const y0=Math.min(...all.map(d=>d.psnr))-1,y1=Math.max(...all.map(d=>d.psnr))+1;
-  const X=v=>L+(W-L-R)*(v-x0)/(x1-x0), Y=v=>T+(H-T-B)*(1-(v-y0)/(y1-y0));
-  [0.1,0.2,0.3,0.4,0.5].forEach(g=>{
-    s.appendChild(el("line",{x1:X(g),x2:X(g),y1:T,y2:H-B,class:"gr"}));
+  const X=q=>L+(W-L-R)*q/x1,Y=q=>T+(H-T-B)*(1-(q-y0)/(y1-y0));
+  [0.1,0.2,0.3,0.4,0.5].forEach(g=>{s.appendChild(el("line",{x1:X(g),x2:X(g),y1:T,y2:H-B,class:"gr"}));
     const t=el("text",{x:X(g),y:H-B+15,class:"tx","text-anchor":"middle"});t.textContent=g;s.appendChild(t);});
-  [36,38,40,42,44].forEach(g=>{
-    s.appendChild(el("line",{x1:L,x2:W-R,y1:Y(g),y2:Y(g),class:"gr"}));
+  [36,38,40,42,44].forEach(g=>{s.appendChild(el("line",{x1:L,x2:W-R,y1:Y(g),y2:Y(g),class:"gr"}));
     const t=el("text",{x:L-7,y:Y(g)+3,class:"tx","text-anchor":"end"});t.textContent=g;s.appendChild(t);});
-  [["25",css("--free"),"25% dose — works"],["10",css("--ours"),"10% dose — inverts"]]
-   .forEach(([k,col,lab],gi)=>{
+  [["25",BLUE,"25% dose — works"],["10",OURS,"10% dose — inverts"]].forEach(([k,col,lab],gi)=>{
     const pts=DATA.audit[k].slice().sort((a,b)=>a.law-b.law);
     let d="";pts.forEach((q,i)=>{d+=(i?"L":"M")+X(q.law)+" "+Y(q.psnr);});
-    s.appendChild(el("path",{d:d,fill:"none",stroke:col,"stroke-width":1.4,
-      "stroke-dasharray":k==="10"?"":"4 3",opacity:.55}));
-    pts.forEach(q=>{
-      const c=el("circle",{cx:X(q.law),cy:Y(q.psnr),r:q.n==="NoLA"?6:4.2,fill:col,
-        opacity:q.n==="NoLA"?1:.7,stroke:css("--panel"),"stroke-width":1.4});
-      const ti=el("title");ti.textContent=q.n+" @ "+k+"% : law "+q.law.toFixed(3)+
+    s.appendChild(el("path",{d:d,fill:"none",stroke:col,"stroke-width":1.5,
+      "stroke-dasharray":k==="10"?"":"5 3",opacity:.5}));
+    pts.forEach(q=>{const c=el("circle",{cx:X(q.law),cy:Y(q.psnr),r:q.n==="NoLA"?6:4.2,
+      fill:col,opacity:q.n==="NoLA"?1:.65,stroke:"#fff","stroke-width":1.4});
+      const ti=el("title");ti.textContent=q.n+" @ "+k+"%: law "+q.law.toFixed(3)+
         ", max|ρ| "+q.rho.toFixed(4)+", "+q.psnr.toFixed(2)+" dB";
       c.appendChild(ti);s.appendChild(c);
       if(q.n==="NoLA"){const t=el("text",{x:X(q.law)+9,y:Y(q.psnr)+4,class:"tx",fill:col});
         t.textContent="NoLA";s.appendChild(t);}});
-    const lg=el("text",{x:W-R+18,y:T+18+gi*20,class:"tx",fill:col});lg.textContent=lab;s.appendChild(lg);});
+    const lg=el("text",{x:W-R+16,y:T+18+gi*20,class:"tx",fill:col});lg.textContent=lab;s.appendChild(lg);});
   const xl=el("text",{x:(L+W-R)/2,y:H-8,class:"tx","text-anchor":"middle"});
   xl.textContent="residual law discrepancy  (0 = residual obeys the estimated law)";s.appendChild(xl);
   const yl=el("text",{x:14,y:H/2,class:"tx","text-anchor":"middle",
     transform:"rotate(-90 14 "+(H/2)+")"});yl.textContent="PSNR_op (dB)";s.appendChild(yl);
 }
 
-function all(){drawLaw();drawGrid();drawTable();
-  line("sw1","psnr","PSNR_op (dB)",css("--ours"),v=>v.toFixed(2));
-  line("sw2","rho","residual autocorrelation",css("--free"),v=>v.toFixed(3));
-  drawAudit();}
-all();
-window.matchMedia("(prefers-color-scheme:dark)").addEventListener("change",all);
+drawLaw();drawGrid();drawTable();drawAudit();
+line("sw1","psnr","PSNR_op (dB)",OURS,q=>q.toFixed(2));
+line("sw2","rho","residual autocorrelation",BLUE,q=>q.toFixed(3));
 })();
 </script>
 </body>
