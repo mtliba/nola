@@ -19,8 +19,10 @@
 html{scroll-behavior:smooth}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
      font-size:17px;line-height:1.7;-webkit-font-smoothing:antialiased}
-.wrap{max-width:900px;margin:0 auto;padding:0 24px}
-.narrow{max-width:760px;margin:0 auto}
+.wrap{max-width:1240px;margin:0 auto;padding:0 32px}
+/* Prose stays readable; figures and tables use the full width. */
+.narrow{max-width:940px;margin:0 auto}
+.full{max-width:none}
 
 /* ---- title block ---- */
 .hero{padding:62px 0 34px;text-align:center;border-bottom:1px solid var(--line)}
@@ -105,6 +107,7 @@ code{font-family:var(--mono);font-size:.92em;background:var(--soft);padding:2px 
 footer{padding:36px 0 62px;text-align:center;color:var(--mut);font-size:14.5px}
 footer a{color:var(--accent)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:900px){.wrap{padding:0 18px}}
 @media(max-width:700px){.grid2{grid-template-columns:1fr}body{font-size:16px}}
 </style>
 </head>
@@ -160,6 +163,17 @@ footer a{color:var(--accent)}
   holds. Only noisy target measurements are available, and the original source
   data cannot be accessed.</p>
   <figure>
+    <img src="assets/overview_motivation.jpg" alt="Why source-free adaptation is needed">
+    <figcaption><b>Why source-free adaptation is needed.</b> (a) One denoiser,
+    two acquisition systems: trained on LoDoPaB parallel-beam projections,
+    deployed on Mayo-geometry fan-beam ones, with only the source weights and
+    unlabelled target sinograms available. (b) The target variance law bends
+    away from the source law because of the electronic term (b &gt; 0), so the
+    deployed model is miscalibrated and leaves excess high-frequency power.
+    (c) NoLA estimates that law from the unlabelled sinograms and uses it as the
+    adaptation signal.</figcaption>
+  </figure>
+  <figure>
     <img src="assets/fig1_motivation.jpg" alt="Source and target noise laws">
     <figcaption><b>Why rescaling is not enough.</b> (a) Source and target follow
     different signal-dependent noise laws that cannot be matched by global
@@ -212,6 +226,17 @@ footer a{color:var(--accent)}
 <section><div class="wrap"><div class="narrow">
   <h2>Method</h2>
   <figure>
+    <img src="assets/overview_framework.jpg" alt="Full NoLA framework">
+    <figcaption><b>The full framework.</b> (a) Problem setup, with the measured
+    noise law of each system beside its sinogram. (b) Three stages: offline
+    source training on labelled source pairs, target-law estimation from
+    unlabelled target sinograms, and source-free adaptation driven by that law.
+    (c) Why adaptation is needed. (d) What it achieves — and where it does not:
+    at 10% dose the residual statistics improve while image quality gets worse,
+    which is why the mismatch score D is used to decide whether to adapt at
+    all.</figcaption>
+  </figure>
+  <figure>
     <img src="assets/fig2_method.jpg" alt="NoLA framework">
     <figcaption><b>NoLA.</b> A source-trained projection U-Net is adapted using
     only unlabelled target sinograms. The target noise law is first estimated
@@ -234,6 +259,15 @@ footer a{color:var(--accent)}
       <tr><td><code>whiteness</code></td><td style="text-align:left">standardised residual decorrelated over lags 1–5, both axes</td></tr>
       <tr><td><code>anchor</code></td><td style="text-align:left">relative L2-SP keeps the update local to the source weights</td></tr>
     </tbody></table></div>
+  <figure>
+    <img src="assets/architecture_detail.jpg" alt="Architecture and adaptation detail">
+    <figcaption><b>The denoiser and the adaptation, in detail.</b> A 17.5M-parameter
+    residual U-Net trained on 8,000 LoDoPaB slices. During adaptation only the
+    three physics-based losses act, on target sinograms alone. The residual
+    panels show what changes: the adapted model leaves a whiter,
+    signal-dependent residual where the source model left visible
+    structure.</figcaption>
+  </figure>
   <div class="callout"><b>A term we removed.</b> An earlier formulation penalised
   residual–output orthogonality. That was wrong: for a Gaussian signal the MMSE
   estimator has <code>Cov(r, ŝ) = α(1−α)Var(y) &gt; 0</code>, so driving it to zero
@@ -282,13 +316,24 @@ footer a{color:var(--accent)}
   isolates denoising error from reconstruction mismatch; the middle block uses
   the vendor reconstruction; NPS is measured against a full-dose acquisition
   through the same operator.</p></div>
-  <div class="tabs">
-    <button class="on" data-t="main">Headline</button>
-    <button data-t="all">Every metric</button>
-    <button data-t="audit">Residual statistics</button>
-  </div>
-  <div class="scroll"><table id="mtab"><thead></thead><tbody></tbody></table></div>
+  <h3 style="margin-top:6px">Table 1 — Cross-system transfer, 25% dose</h3>
+  <div class="scroll"><table id="tmain"><thead></thead><tbody></tbody></table></div>
   <div class="legend" id="tablegend"></div>
+
+  <h3>Table 2 — Full-reference quality assessment, every metric measured</h3>
+  <p style="font-size:15px;color:var(--mut);margin:-2px 0 12px">
+  Click any column to sort. Best in column in <b style="color:#c0392b">red</b>.
+  The three reference groups are marked in the header and must not be read
+  across.</p>
+  <div class="scroll"><table id="tall"><thead></thead><tbody></tbody></table></div>
+
+  <h3>Table 3 — Residual statistics on held-out patients</h3>
+  <p style="font-size:15px;color:var(--mut);margin:-2px 0 12px">
+  What the objective actually constrains, measured on patients adaptation never
+  saw. Law error is the mean |log(measured variance / predicted variance)| over
+  signal bands; max|ρ| is the largest short-range autocorrelation of the
+  standardised residual.</p>
+  <div class="scroll"><table id="taud"><thead></thead><tbody></tbody></table></div>
   <div class="narrow">
   <div class="callout"><b>Two columns go against us, and we report them.</b>
   Undenoised FBP wins VIF outright — VIF penalises blur far more than noise, so
@@ -525,31 +570,31 @@ const AUD=[["name","Method",null],["law","Law err.",-1],["rho","max|ρ|",-1],["p
 const STAT={"Source-only":[0.494,0.4067],"AdaBN":[0.354,0.2816],"NoLA":[0.253,0.0238],
   "Supervised FT":[0.544,0.0707],"-whiteness":[0.213,0.0997]};
 const CLSCOL={none:GREY,labelfree:BLUE,ours:OURS,oracle:WARN,supervised:OK,ablation:"#8892a0"};
-let mode="main",sortKey="psnr_op",sortDir=-1;
-function rowsFor(){
-  const src=(DATA.metrics||[]).map(r=>{
-    const o=Object.assign({},r), s=STAT[r.name];
-    o.law=s?s[0]:null; o.rho=s?s[1]:null;
-    const base=DATA.metrics.find(x=>x.name==="Source-only");
+function enrich(){
+  const base=(DATA.metrics||[]).find(x=>x.name==="Source-only");
+  return (DATA.metrics||[]).map(r=>{
+    const o=Object.assign({},r), st=STAT[r.name];
+    o.law=st?st[0]:null; o.rho=st?st[1]:null;
     o.dpsnr=(base&&r.psnr_op!=null)?+(r.psnr_op-base.psnr_op).toFixed(2):null;
     return o;});
-  if(mode==="main")return src.filter(r=>["FBP","Source-only","AdaBN",
-    "Noise2Inverse (K=2)","NoLA","NoLA oracle law","Supervised FT"].includes(r.name));
-  if(mode==="audit")return DATA.audit["25"].map(d=>({name:d.n,law:d.law,rho:d.rho,
-    psnr:d.psnr,cls:d.n==="NoLA"?"ours":(d.n==="Supervised FT"?"supervised":"labelfree")}));
-  return src;
 }
-function drawTable(){
-  const cols=mode==="main"?MAIN:(mode==="audit"?AUD:ALL);
-  const t=document.getElementById("mtab");
-  t.querySelector("thead").innerHTML="<tr>"+cols.map(c=>
-    "<th class='s' data-k='"+c[0]+"'>"+c[1]+(c[2]===1?" ↑":c[2]===-1?" ↓":"")+"</th>").join("")+"</tr>";
-  const rows=rowsFor(), best={};
-  cols.forEach(c=>{if(!c[2])return;const v=rows.filter(r=>r[c[0]]!=null).map(r=>r[c[0]]);
+const HEADLINE=["FBP","Source-only","AdaBN","Noise2Inverse (K=2)","NoLA",
+                "NoLA oracle law","Supervised FT"];
+function render(tid,cols,rows,sortState,groupHdr){
+  const t=document.getElementById(tid);
+  let head="";
+  if(groupHdr) head+="<tr>"+groupHdr+"</tr>";
+  head+="<tr>"+cols.map(c=>"<th class='s' data-k='"+c[0]+"'>"+c[1]+
+    (c[2]===1?" ↑":c[2]===-1?" ↓":"")+"</th>").join("")+"</tr>";
+  t.querySelector("thead").innerHTML=head;
+  const best={};
+  cols.forEach(c=>{if(!c[2])return;
+    const v=rows.filter(r=>r[c[0]]!=null).map(r=>r[c[0]]);
     if(v.length)best[c[0]]=c[2]===1?Math.max(...v):Math.min(...v);});
-  rows.sort((a,b)=>sortKey==="name"?sortDir*a.name.localeCompare(b.name)
-    :sortDir*((a[sortKey]??-1e9)-(b[sortKey]??-1e9)));
-  t.querySelector("tbody").innerHTML=rows.map(r=>"<tr"+(r.cls==="ours"?" class='ours'":"")+">"+
+  const sorted=rows.slice().sort((a,b)=>sortState.k==="name"
+    ?sortState.d*a.name.localeCompare(b.name)
+    :sortState.d*((a[sortState.k]??-1e9)-(b[sortState.k]??-1e9)));
+  t.querySelector("tbody").innerHTML=sorted.map(r=>"<tr"+(r.cls==="ours"?" class='ours'":"")+">"+
     cols.map(c=>{
       if(c[0]==="name")return "<td><span class='dot' style='background:"+
         (CLSCOL[r.cls]||"#8892a0")+"'></span>"+r.name+"</td>";
@@ -561,17 +606,30 @@ function drawTable(){
       const sgn=(c[0]==="dpsnr"&&q>0)?"+":"";
       return "<td class='v'"+(bst?" style='font-weight:700;color:"+OURS+"'":"")+">"+
         sgn+q.toFixed(dec)+"</td>";}).join("")+"</tr>").join("");
-  t.querySelectorAll("th").forEach(th=>th.onclick=()=>{
-    const k=th.dataset.k;sortDir=(k===sortKey)?-sortDir:-1;sortKey=k;drawTable();});
+  t.querySelectorAll("th.s").forEach(th=>th.onclick=()=>{
+    const k=th.dataset.k;
+    sortState.d=(k===sortState.k)?-sortState.d:-1; sortState.k=k;
+    render(tid,cols,rows,sortState,groupHdr);});
+}
+const S1={k:"psnr_op",d:-1},S2={k:"psnr_op",d:-1},S3={k:"law",d:1};
+// Column groups spelled out in the header, because the three reference
+// conventions are not comparable and a reader scanning left to right would
+// otherwise have no way to know that.
+const GRP="<th></th>"+
+  "<th colspan='2' style='text-align:center;border-bottom:2px solid #e3e6eb'>vs. FBP(clean sinogram)</th>"+
+  "<th colspan='7' style='text-align:center;border-bottom:2px solid #e3e6eb'>vs. vendor reconstruction</th>"+
+  "<th colspan='2' style='text-align:center;border-bottom:2px solid #e3e6eb'>vs. full dose</th>";
+function drawTable(){
+  const all=enrich();
+  render("tmain",MAIN,all.filter(r=>HEADLINE.includes(r.name)),S1);
+  render("tall",ALL,all,S2,GRP);
+  render("taud",AUD,DATA.audit["25"].map(d=>({name:d.n,law:d.law,rho:d.rho,psnr:d.psnr,
+    cls:d.n==="NoLA"?"ours":(d.n==="Supervised FT"?"supervised":"labelfree")})),S3);
   document.getElementById("tablegend").innerHTML=
     [["no denoising",GREY],["label-free",BLUE],["NoLA (ours)",OURS],
      ["oracle law",WARN],["supervised on target",OK]].map(([l,c])=>
       "<span><span class='dot' style='background:"+c+"'></span>"+l+"</span>").join("");
 }
-document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
-  document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("on"));
-  b.classList.add("on");mode=b.dataset.t;
-  sortKey=mode==="audit"?"law":"psnr_op";sortDir=mode==="audit"?1:-1;drawTable();});
 
 /* -------- sweep + audit ------------------------------------------------- */
 function line(id,key,ylab,col,fmt){
