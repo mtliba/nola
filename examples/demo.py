@@ -289,7 +289,6 @@ def main() -> int:
 
     # ---- report -----------------------------------------------------------
     print("\n[5/6] result on held-out target slices (PSNR, projection domain)\n")
-    gap = src_psnr - noisy_psnr
     rows = [("no denoising", noisy_psnr), ("source model, zero-shot", src_psnr),
             ("NoLA adapted (no labels)", nola_psnr)]
     w = max(len(r[0]) for r in rows)
@@ -298,9 +297,12 @@ def main() -> int:
         print(f"      {name:<{w}}  {v:7.3f} dB{d}")
     print(f"\n      adaptation gain over the frozen source model: "
           f"{nola_psnr - src_psnr:+.2f} dB")
-    if gap > 0:
-        print(f"      that is {100*(nola_psnr-src_psnr)/max(gap,1e-9):.0f}% of "
-              "what the source model itself was worth")
+    # Deliberately no "percentage of the source model's own gain" here. When
+    # the source model transfers poorly its gain is near zero, and dividing by
+    # it produced numbers like 689%, which says nothing about the method.
+    if nola_psnr > src_psnr:
+        print("      the law was estimated and the model adapted using only "
+              "noisy target sinograms")
 
     # ---- figure -----------------------------------------------------------
     print("\n[6/6] writing figure")

@@ -21,10 +21,36 @@ pip install -e ".[demo]"
 python examples/demo.py
 ```
 
-Runs on a laptop CPU in a few minutes and needs **no data download**. It builds
-a phantom, acquires it under two different noise laws, trains a small source
-denoiser, shows it degrade on the target, estimates the target law from
-unlabelled sinograms, adapts, and reports the gap closing.
+Runs on a laptop CPU in about six minutes and needs **no data download** and no
+ASTRA. It builds a phantom, acquires it under two different noise laws, trains a
+small source denoiser, estimates the target law from unlabelled sinograms,
+adapts, and reports the gap closing. A typical run:
+
+```
+shift magnitude D = 2.18   -> adaptation should help
+
+[3/6] estimating the target noise law from UNLABELLED sinograms
+      estimated  I0=  34124.7  sigma_e=  8.73
+      truth      I0=  37500.0  sigma_e= 10.00
+      error           9.00%             12.68%   (no labels were read)
+
+      no denoising               49.193 dB
+      source model, zero-shot    49.530 dB    +0.34 dB vs noisy
+      NoLA adapted (no labels)   51.855 dB    +2.66 dB vs noisy
+
+      adaptation gain over the frozen source model: +2.32 dB
+```
+
+**The demo also tells you when the method should not be used.** It prints the
+shift magnitude `D` — computable with no labels — before adapting. The defaults
+mirror the paper's 25 % dose operating point (D = 2.18 here, 2.09 there). Run
+
+```bash
+python examples/demo.py --target-i0 8000 --target-sigma-e 12   # D = 0.50
+```
+
+and adaptation *loses* about half a decibel, exactly as the criterion predicts.
+That failure is a feature of the demo, not an accident of it.
 
 Steps 5 and 6 of the demo call the same `nola.lawfit` and `nola.adapt` used for
 every number in the paper, so it exercises the shipped code rather than a
