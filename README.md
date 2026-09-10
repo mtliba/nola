@@ -227,7 +227,7 @@ tests/           unit tests, including the leakage rule
 @inproceedings{nola2026,
   title     = {NoLA: Source-Free Noise-Law Adaptation for Cross-System
                CT Projection Denoising},
-  booktitle = {ICASSP},
+  booktitle = {Under Review},
   year      = {2026}
 }
 ```
