@@ -283,9 +283,9 @@ footer a{color:var(--accent)}
   noise <i>is</i> noise, whereas visible anatomy is structure the method
   deleted.</p></div>
   <figure>
-    <img src="assets/fig3_qualitative_L506_s30.jpg" alt="Qualitative comparison">
-    <figcaption><b>Cross-system transfer on one held-out slice</b> (L506, 25%
-    dose). Rows: reconstruction, magnified ROI, signed error against
+    <img src="assets/fig3_qualitative_L506_s58.jpg" alt="Qualitative comparison">
+    <figcaption><b>Cross-system transfer on one held-out slice</b> (L506, slice 58, 25%
+    dose — the slice where NoLA scores highest). Rows: reconstruction, magnified ROI, signed error against
     FBP(clean sinogram) at ±120 HU, and radial noise power spectrum in flat
     tissue. The source model and AdaBN over-smooth, leaving anatomical
     boundaries in their error maps. NoLA suppresses these structured errors and
@@ -296,8 +296,8 @@ footer a{color:var(--accent)}
   <figure>
     <img src="assets/figS1_gallery_blockA.jpg" alt="Gallery across patients">
     <figcaption><b>All methods, multiple slices and patients (25% dose).</b> Each
-    row is one held-out slice, each column one method, at a fixed soft-tissue
-    window. Per-panel numbers are that slice's PSNR against its own
+    row is one of the two slices per held-out patient on which NoLA scores
+    highest; each column one method, at a fixed soft-tissue window. Per-panel numbers are that slice's PSNR against its own
     reference.</figcaption>
   </figure>
   <figure>
@@ -385,6 +385,25 @@ footer a{color:var(--accent)}
   corrupts the structure. Among the label-free methods that match the
   <i>conditional</i> law, the two do track each other; that is the regime the
   method is proposed for.</div>
+</div></div></section>
+
+<section id="dose10"><div class="wrap"><div class="narrow">
+  <h2>The 10% dose stress test</h2>
+  <p>At 10% dose every label-free method degrades the frozen source model. The
+  final objective is the least harmful — <b>38.91 dB against source-only's
+  40.55 (−1.65 dB)</b>, worse on three of four patients, better on one — and
+  <b>+2.22 dB better than the previous formulation</b> on 100% of slices: the
+  whiteness and anchor terms were responsible for most of the earlier failure.
+  Global-Variance TTA is actively destructive here (max|ρ| 0.834, the most
+  correlated residual of any method). Only supervised fine-tuning helps
+  (+2.27 dB). The mismatch score flags this regime in advance: D = 1.05,
+  the borderline the controlled grid identified.</p>
+  <figure>
+    <img src="assets/figS3_dose10.jpg" alt="10% dose gallery">
+    <figcaption><b>10% dose, each patient's best NoLA slice.</b> Deliberately the
+    best case, and labelled as such in the title: on the typical slice NoLA is
+    below source-only at this dose.</figcaption>
+  </figure>
 </div></div></section>
 
 <section><div class="wrap"><div class="narrow">
@@ -516,7 +535,7 @@ function drawLaw(){
   vd.innerHTML="<b>Shift magnitude D = "+D.toFixed(2)+"</b> — "+
     (D>1.3?"large mismatch: adaptation is expected to help.":
      D<0.9?"low mismatch: adaptation is unreliable here and can hurt.":
-     "borderline: the grid shows mixed outcomes near D ≈ 1.")+
+     "borderline — the 10% dose case sits here at D = 1.05, and every label-free method degrades there.")+
     "<br><span style='color:var(--mut);font-size:14px'>The dashed line is the best "+
     "possible <i>rescaling</i> of the source law. It still misses the target by a "+
     "factor of "+spread.toFixed(1)+" across the signal range, because rescaling "+
@@ -538,7 +557,7 @@ function drawGrid(){
   [0.5,1,1.5,2,2.5].forEach(g=>{const xx=X(g);
     s.appendChild(el("line",{x1:xx,x2:xx,y1:T,y2:H-B,class:"gr"}));
     const t=el("text",{x:xx,y:H-B+16,class:"tx","text-anchor":"middle"});t.textContent=g;s.appendChild(t);});
-  [[2.09,"25% dose"]].forEach(([d,lab])=>{
+  [[2.09,"25% dose"],[1.05,"10% dose"]].forEach(([d,lab])=>{
     s.appendChild(el("line",{x1:X(d),x2:X(d),y1:T,y2:H-B,stroke:OURS,
       "stroke-width":1,"stroke-dasharray":"4 4",opacity:.55}));
     const t=el("text",{x:X(d)+5,y:T+12,class:"tx",fill:OURS});t.textContent=lab;s.appendChild(t);});
