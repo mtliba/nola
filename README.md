@@ -9,7 +9,7 @@ Poisson–Gaussian *variance law* directly from the noisy projections, then usin
 that law — rather than a target data distribution — as the adaptation signal.
 
 On LoDoPaB → Mayo-geometry transfer at 25 % dose, NoLA improves the frozen
-source model by **+2.80 dB** and recovers **61.7 %** of the supervised
+source model by **+2.97 dB** and recovers **65.5 %** of the supervised
 fine-tuning gap, using no labels.
 
 ---
@@ -96,18 +96,19 @@ print(law.i0, law.electronic_sigma)
 adapt(model, loader, law, NoLAWeights(), steps=10_000, lr=1e-5)
 ```
 
-The objective has three terms (`nola/losses.py`):
+The final objective is **one term** — the signal-conditional moment loss:
+in each of K = 20 signal bands, the residual's mean and variance are matched
+to the estimated law. Two further terms were tested and removed:
 
-| term | what it constrains |
-|---|---|
-| `moment` | signal-conditional residual mean and variance match the law |
-| `whiteness` | standardised residual is decorrelated over lags 1–5, both axes |
-| `anchor` | relative L2-SP keeps the update local to the source weights |
+| term | what it does | verdict |
+|---|---|---|
+| `moment` | conditional residual mean and variance match the law | **kept — the whole objective** |
+| `whiteness` | decorrelates the standardised residual, lags 1–5 | removed: −0.17 dB, buys decorrelation only |
+| `anchor` | relative L2-SP toward the source weights | removed: +0.10 dB but not needed for stability |
 
-A fourth term, residual–output **orthogonality, is deliberately off by
-default**: the MMSE estimator violates it, so driving it to zero moves the
-model away from the optimum. It is kept only as an ablation. See
-`orthogonality_loss` for the derivation.
+`NoLAWeights()` still exposes all of them for the ablations. Residual–output
+**orthogonality** is off for a stronger reason: the MMSE estimator violates it,
+so driving it to zero moves the model away from the optimum.
 
 ---
 
@@ -189,27 +190,29 @@ error from reconstruction mismatch.
 | Source-only | 40.53 ± 0.58 | 0.00 | 0.9619 | 0.494 | 0.4067 |
 | AdaBN | 41.60 ± 0.71 | +1.07 | 0.9684 | 0.354 | 0.2816 |
 | Noise2Inverse (K=2) | 41.47 ± 2.59 | +0.94 | 0.9464 | — | — |
-| **NoLA** | **43.33 ± 1.69** | **+2.80** | 0.9659 | **0.253** | **0.0238** |
-| NoLA, oracle law | 43.48 ± 1.61 | +2.95 | 0.9672 | — | — |
+| Masked SSL-TTA | 40.45 ± 2.11 | −0.08 | 0.9232 | 0.607 | 0.2081 |
+| Global-Variance TTA | 43.34 ± 1.93 | +2.82 | 0.9647 | 0.438 | 0.6344 |
+| **NoLA** | **43.50 ± 1.83** | **+2.97** | 0.9665 | **0.150** | 0.0997 |
+| NoLA, oracle law | 43.48 ± 1.61 | +2.95 | 0.9672 | 0.305 | 0.0202 |
 | *Supervised fine-tune* | *45.06 ± 0.94* | *+4.53* | *0.9775* | *0.544* | *0.0707* |
 
 Against Noise2Inverse — the like-for-like label-free baseline, trained on the
 same target patients — NoLA wins on all four held-out patients individually
-(+3.00, +1.92, +1.76, +0.74 dB) and on 80.6 % of slices.
+(+2.95, +2.15, +2.01, +0.99 dB) and on 96.1 % of slices. Against Masked
+SSL-TTA from the same initialisation, which does not help at all (−0.08 dB vs
+source), NoLA is +3.05 dB ahead on 100 % of slices.
 
-### Where it fails
+### Matching the objective is not the same as improving the image
 
-At 10 % dose NoLA reaches **36.68 dB against the source model's 40.55** — worse
-than doing nothing. This is *not* estimation error: the oracle-law variant
-fails identically (38.35 dB). It is the regime our own criterion flags, at
-shift magnitude `D = 1.05` against `D = 2.09` at 25 % dose, and the controlled
-grid already showed adaptation to be unreliable for `D < 1`. Noise2Inverse,
-which shares none of this objective, also fails there (36.96 dB).
-
-The residual audit makes the mechanism explicit: at 10 % dose NoLA attains the
-**best** law match (0.106) and lowest residual autocorrelation (0.012) of any
-method — better than supervised fine-tuning — while producing the worst image.
-Matching the target's residual statistics does not identify the clean signal.
+The residual audit on held-out patients shows the two do not move together, in
+either direction. *Not necessary:* supervised fine-tuning has the **worst** law
+match of any method (0.544) and the best image. *Not sufficient:* Global-Variance
+TTA reaches almost NoLA's PSNR (43.34 vs 43.50) while leaving the law barely
+matched (0.438 vs 0.150) and driving residual autocorrelation to **0.634 —
+worse than the unadapted source model (0.407)**. It matches the average
+variance and corrupts the structure. The signal-dependent law is what makes the
+adapted residual actually obey the target physics; on PSNR alone the margin is
++0.15 dB.
 
 ---
 

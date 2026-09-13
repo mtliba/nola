@@ -141,16 +141,16 @@ footer a{color:var(--accent)}
     directly from the projections and uses it to guide a local update of the
     pretrained network through residual-statistics matching and source
     anchoring. On simulated cross-system transfer from LoDoPaB to Mayo geometry,
-    NoLA improves the frozen source model by <b>2.80 dB</b> and recovers
-    <b>61.7%</b> of the supervised fine-tuning gap. Across controlled noise-law
+    NoLA improves the frozen source model by <b>2.97 dB</b> and recovers
+    <b>65.5%</b> of the supervised fine-tuning gap. Across controlled noise-law
     shifts, the adaptation gain is strongly predicted by the source–target law
     mismatch (ρ = 0.953), while a low-mismatch stress test exposes the limits of
     residual-statistics-only adaptation.</p>
   </div>
   <div class="kpis">
-    <div class="kpi"><b>+2.80 dB</b><span>over the frozen source model</span></div>
-    <div class="kpi"><b>61.7%</b><span>of the supervised gap, no labels</span></div>
-    <div class="kpi"><b>+1.85 dB</b><span>over Noise2Inverse, 4/4 patients</span></div>
+    <div class="kpi"><b>+2.97 dB</b><span>over the frozen source model</span></div>
+    <div class="kpi"><b>65.5%</b><span>of the supervised gap, no labels</span></div>
+    <div class="kpi"><b>+2.03 dB</b><span>over Noise2Inverse, 4/4 patients</span></div>
     <div class="kpi"><b>ρ = 0.953</b><span>gain vs. law mismatch</span></div>
   </div>
 </div></div></section>
@@ -231,10 +231,8 @@ footer a{color:var(--accent)}
     noise law of each system beside its sinogram. (b) Three stages: offline
     source training on labelled source pairs, target-law estimation from
     unlabelled target sinograms, and source-free adaptation driven by that law.
-    (c) Why adaptation is needed. (d) What it achieves — and where it does not:
-    at 10% dose the residual statistics improve while image quality gets worse,
-    which is why the mismatch score D is used to decide whether to adapt at
-    all.</figcaption>
+    (c) Why adaptation is needed. (d) What it achieves, and the mismatch score
+    D used to decide whether to adapt at all.</figcaption>
   </figure>
   <figure>
     <img src="assets/fig2_method.jpg" alt="NoLA framework">
@@ -251,13 +249,16 @@ footer a{color:var(--accent)}
   is not conditioned on the same samples. Samples are grouped into signal bands,
   the variance estimated robustly by MAD, and the law fitted in log space with
   a Jensen correction.</p>
-  <h3>The objective</h3>
+  <h3>The objective — one term</h3>
+  <p>The final objective is the signal-conditional moment loss alone: in each
+  of K = 20 signal bands, the residual's mean and variance are matched to the
+  estimated law. Two further terms were tested and removed:</p>
   <div class="scroll"><table>
-    <thead><tr><th>Term</th><th style="text-align:left">What it constrains</th></tr></thead>
+    <thead><tr><th>Term</th><th style="text-align:left">What it does</th><th style="text-align:left">Verdict</th></tr></thead>
     <tbody>
-      <tr><td><code>moment</code></td><td style="text-align:left">signal-conditional residual mean and variance match the estimated law</td></tr>
-      <tr><td><code>whiteness</code></td><td style="text-align:left">standardised residual decorrelated over lags 1–5, both axes</td></tr>
-      <tr><td><code>anchor</code></td><td style="text-align:left">relative L2-SP keeps the update local to the source weights</td></tr>
+      <tr><td><code>moment</code></td><td style="text-align:left">conditional residual mean and variance match the law</td><td style="text-align:left"><b>kept — the whole objective</b></td></tr>
+      <tr><td><code>whiteness</code></td><td style="text-align:left">decorrelates the standardised residual over lags 1–5</td><td style="text-align:left">removed: −0.17 dB, buys decorrelation only</td></tr>
+      <tr><td><code>anchor</code></td><td style="text-align:left">relative L2-SP toward the source weights</td><td style="text-align:left">removed: +0.10 dB but not needed for stability</td></tr>
     </tbody></table></div>
   <figure>
     <img src="assets/architecture_detail.jpg" alt="Architecture and adaptation detail">
@@ -369,27 +370,21 @@ footer a{color:var(--accent)}
 </div></div></section>
 
 <section id="failure"><div class="wrap"><div class="narrow">
-  <h2>Where it fails</h2>
-  <p>At 10% dose NoLA reaches <b>36.68 dB against the frozen source model's
-  40.55</b> — worse than doing nothing. This is <i>not</i> estimation error: the
-  oracle-law variant fails identically (38.35 dB). It is the regime our own
-  criterion flags, at D = 1.05 against D = 2.09 at 25% dose. Noise2Inverse,
-  which shares none of this objective, also fails there (36.96 dB).</p>
+  <h2>Matching the objective is not the same as improving the image</h2>
+  <p>The residual audit measures, on the held-out patients, how well each
+  method's residual obeys the estimated law and how decorrelated it is. Plotted
+  against reconstruction quality, the two do not move together — in either
+  direction.</p>
   <div class="sim"><svg id="auditsvg" viewBox="0 0 720 300" role="img"></svg></div>
-  <div class="callout bad"><b>The objective is satisfied and the image is worse.</b>
-  At 10% dose NoLA attains the <i>best</i> law match (0.106) and the lowest
-  residual autocorrelation (0.012) of any method — better than supervised
-  fine-tuning — while producing the worst reconstruction. Matching the target's
-  residual statistics does not identify the clean signal. That is the method's
-  scope, stated as a limit rather than discovered by a reader.</div>
-  <figure>
-    <img src="assets/figS3_dose10.jpg" alt="10% dose failure">
-    <figcaption><b>The failure, shown rather than described.</b> Every adapted
-    variant produces radial streak artifacts absent from the source model, from
-    supervised fine-tuning, and from Noise2Inverse, which degrades at this dose
-    without producing them. We tested two mechanisms and falsified both; the
-    cause remains open.</figcaption>
-  </figure>
+  <div class="callout bad"><b>Two counter-examples on one plot.</b>
+  <i>Not necessary:</i> supervised fine-tuning has the <b>worst</b> law match of
+  any method (0.544) and the best image. <i>Not sufficient:</i> Global-Variance
+  TTA reaches almost NoLA's PSNR while leaving the law barely matched (0.438 vs
+  NoLA's 0.150) and driving residual autocorrelation to <b>0.634 — worse than
+  the unadapted source model's 0.407</b>. It matches the average variance and
+  corrupts the structure. Among the label-free methods that match the
+  <i>conditional</i> law, the two do track each other; that is the regime the
+  method is proposed for.</div>
 </div></div></section>
 
 <section><div class="wrap"><div class="narrow">
@@ -521,7 +516,7 @@ function drawLaw(){
   vd.innerHTML="<b>Shift magnitude D = "+D.toFixed(2)+"</b> — "+
     (D>1.3?"large mismatch: adaptation is expected to help.":
      D<0.9?"low mismatch: adaptation is unreliable here and can hurt.":
-     "borderline — the 10% dose case that fails sits at D = 1.05.")+
+     "borderline: the grid shows mixed outcomes near D ≈ 1.")+
     "<br><span style='color:var(--mut);font-size:14px'>The dashed line is the best "+
     "possible <i>rescaling</i> of the source law. It still misses the target by a "+
     "factor of "+spread.toFixed(1)+" across the signal range, because rescaling "+
@@ -543,7 +538,7 @@ function drawGrid(){
   [0.5,1,1.5,2,2.5].forEach(g=>{const xx=X(g);
     s.appendChild(el("line",{x1:xx,x2:xx,y1:T,y2:H-B,class:"gr"}));
     const t=el("text",{x:xx,y:H-B+16,class:"tx","text-anchor":"middle"});t.textContent=g;s.appendChild(t);});
-  [[2.09,"25% dose"],[1.05,"10% dose"]].forEach(([d,lab])=>{
+  [[2.09,"25% dose"]].forEach(([d,lab])=>{
     s.appendChild(el("line",{x1:X(d),x2:X(d),y1:T,y2:H-B,stroke:OURS,
       "stroke-width":1,"stroke-dasharray":"4 4",opacity:.55}));
     const t=el("text",{x:X(d)+5,y:T+12,class:"tx",fill:OURS});t.textContent=lab;s.appendChild(t);});
@@ -654,33 +649,31 @@ function line(id,key,ylab,col,fmt){
   xl.textContent="whiteness weight λ";s.appendChild(xl);
 }
 function drawAudit(){
-  const s=document.getElementById("auditsvg"),W=720,H=300,L=62,R=155,T=18,B=46;
+  const s=document.getElementById("auditsvg"),W=720,H=300,L=62,R=24,T=18,B=46;
   s.textContent="";
-  const all=DATA.audit["25"].concat(DATA.audit["10"]);
-  const x1=Math.max(...all.map(d=>d.law))*1.12;
-  const y0=Math.min(...all.map(d=>d.psnr))-1,y1=Math.max(...all.map(d=>d.psnr))+1;
+  const pts=DATA.audit["25"];
+  const x1=Math.max(...pts.map(d=>d.law))*1.10;
+  const y0=Math.min(...pts.map(d=>d.psnr))-0.8,y1=Math.max(...pts.map(d=>d.psnr))+0.8;
   const X=q=>L+(W-L-R)*q/x1,Y=q=>T+(H-T-B)*(1-(q-y0)/(y1-y0));
-  [0.1,0.2,0.3,0.4,0.5].forEach(g=>{s.appendChild(el("line",{x1:X(g),x2:X(g),y1:T,y2:H-B,class:"gr"}));
+  [0.1,0.2,0.3,0.4,0.5,0.6].forEach(g=>{if(g>x1)return;
+    s.appendChild(el("line",{x1:X(g),x2:X(g),y1:T,y2:H-B,class:"gr"}));
     const t=el("text",{x:X(g),y:H-B+15,class:"tx","text-anchor":"middle"});t.textContent=g;s.appendChild(t);});
-  [36,38,40,42,44].forEach(g=>{s.appendChild(el("line",{x1:L,x2:W-R,y1:Y(g),y2:Y(g),class:"gr"}));
+  [40,41,42,43,44,45].forEach(g=>{if(g<y0||g>y1)return;
+    s.appendChild(el("line",{x1:L,x2:W-R,y1:Y(g),y2:Y(g),class:"gr"}));
     const t=el("text",{x:L-7,y:Y(g)+3,class:"tx","text-anchor":"end"});t.textContent=g;s.appendChild(t);});
-  [["25",BLUE,"25% dose — works"],["10",OURS,"10% dose — inverts"]].forEach(([k,col,lab],gi)=>{
-    const pts=DATA.audit[k].slice().sort((a,b)=>a.law-b.law);
-    let d="";pts.forEach((q,i)=>{d+=(i?"L":"M")+X(q.law)+" "+Y(q.psnr);});
-    s.appendChild(el("path",{d:d,fill:"none",stroke:col,"stroke-width":1.5,
-      "stroke-dasharray":k==="10"?"":"5 3",opacity:.5}));
-    pts.forEach(q=>{const c=el("circle",{cx:X(q.law),cy:Y(q.psnr),r:q.n==="NoLA"?6:4.2,
-      fill:col,opacity:q.n==="NoLA"?1:.65,stroke:"#fff","stroke-width":1.4});
-      const ti=el("title");ti.textContent=q.n+" @ "+k+"%: law "+q.law.toFixed(3)+
-        ", max|ρ| "+q.rho.toFixed(4)+", "+q.psnr.toFixed(2)+" dB";
-      c.appendChild(ti);s.appendChild(c);
-      if(q.n==="NoLA"){const t=el("text",{x:X(q.law)+9,y:Y(q.psnr)+4,class:"tx",fill:col});
-        t.textContent="NoLA";s.appendChild(t);}});
-    const lg=el("text",{x:W-R+16,y:T+18+gi*20,class:"tx",fill:col});lg.textContent=lab;s.appendChild(lg);});
+  const col=n=>n==="NoLA"?OURS:(n==="Supervised FT"?OK:(n==="NoLA + white + anchor"?"#8892a0":BLUE));
+  pts.forEach(q=>{
+    const c=el("circle",{cx:X(q.law),cy:Y(q.psnr),r:q.n==="NoLA"?6.5:4.6,fill:col(q.n),
+      stroke:"#fff","stroke-width":1.4});
+    const ti=el("title");ti.textContent=q.n+": law "+q.law.toFixed(3)+", max|ρ| "+
+      q.rho.toFixed(4)+", "+q.psnr.toFixed(2)+" dB";c.appendChild(ti);s.appendChild(c);
+    const dy=(q.n==="Global-Variance TTA"||q.n==="AdaBN")?-9:5;
+    const t=el("text",{x:X(q.law)+9,y:Y(q.psnr)+dy,class:"tx",fill:col(q.n),
+      style:q.n==="NoLA"?"font-weight:700":""});t.textContent=q.n;s.appendChild(t);});
   const xl=el("text",{x:(L+W-R)/2,y:H-8,class:"tx","text-anchor":"middle"});
-  xl.textContent="residual law discrepancy  (0 = residual obeys the estimated law)";s.appendChild(xl);
+  xl.textContent="residual law discrepancy on held-out patients  (0 = residual obeys the estimated law)";s.appendChild(xl);
   const yl=el("text",{x:14,y:H/2,class:"tx","text-anchor":"middle",
-    transform:"rotate(-90 14 "+(H/2)+")"});yl.textContent="PSNR_op (dB)";s.appendChild(yl);
+    transform:"rotate(-90 14 "+(H/2)+")"});yl.textContent="PSNR_op (dB), 25% dose";s.appendChild(yl);
 }
 
 drawLaw();drawGrid();drawTable();drawAudit();

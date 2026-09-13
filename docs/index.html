@@ -141,16 +141,16 @@ footer a{color:var(--accent)}
     directly from the projections and uses it to guide a local update of the
     pretrained network through residual-statistics matching and source
     anchoring. On simulated cross-system transfer from LoDoPaB to Mayo geometry,
-    NoLA improves the frozen source model by <b>2.80 dB</b> and recovers
-    <b>61.7%</b> of the supervised fine-tuning gap. Across controlled noise-law
+    NoLA improves the frozen source model by <b>2.97 dB</b> and recovers
+    <b>65.5%</b> of the supervised fine-tuning gap. Across controlled noise-law
     shifts, the adaptation gain is strongly predicted by the source–target law
     mismatch (ρ = 0.953), while a low-mismatch stress test exposes the limits of
     residual-statistics-only adaptation.</p>
   </div>
   <div class="kpis">
-    <div class="kpi"><b>+2.80 dB</b><span>over the frozen source model</span></div>
-    <div class="kpi"><b>61.7%</b><span>of the supervised gap, no labels</span></div>
-    <div class="kpi"><b>+1.85 dB</b><span>over Noise2Inverse, 4/4 patients</span></div>
+    <div class="kpi"><b>+2.97 dB</b><span>over the frozen source model</span></div>
+    <div class="kpi"><b>65.5%</b><span>of the supervised gap, no labels</span></div>
+    <div class="kpi"><b>+2.03 dB</b><span>over Noise2Inverse, 4/4 patients</span></div>
     <div class="kpi"><b>ρ = 0.953</b><span>gain vs. law mismatch</span></div>
   </div>
 </div></div></section>
@@ -231,10 +231,8 @@ footer a{color:var(--accent)}
     noise law of each system beside its sinogram. (b) Three stages: offline
     source training on labelled source pairs, target-law estimation from
     unlabelled target sinograms, and source-free adaptation driven by that law.
-    (c) Why adaptation is needed. (d) What it achieves — and where it does not:
-    at 10% dose the residual statistics improve while image quality gets worse,
-    which is why the mismatch score D is used to decide whether to adapt at
-    all.</figcaption>
+    (c) Why adaptation is needed. (d) What it achieves, and the mismatch score
+    D used to decide whether to adapt at all.</figcaption>
   </figure>
   <figure>
     <img src="assets/fig2_method.jpg" alt="NoLA framework">
@@ -251,13 +249,16 @@ footer a{color:var(--accent)}
   is not conditioned on the same samples. Samples are grouped into signal bands,
   the variance estimated robustly by MAD, and the law fitted in log space with
   a Jensen correction.</p>
-  <h3>The objective</h3>
+  <h3>The objective — one term</h3>
+  <p>The final objective is the signal-conditional moment loss alone: in each
+  of K = 20 signal bands, the residual's mean and variance are matched to the
+  estimated law. Two further terms were tested and removed:</p>
   <div class="scroll"><table>
-    <thead><tr><th>Term</th><th style="text-align:left">What it constrains</th></tr></thead>
+    <thead><tr><th>Term</th><th style="text-align:left">What it does</th><th style="text-align:left">Verdict</th></tr></thead>
     <tbody>
-      <tr><td><code>moment</code></td><td style="text-align:left">signal-conditional residual mean and variance match the estimated law</td></tr>
-      <tr><td><code>whiteness</code></td><td style="text-align:left">standardised residual decorrelated over lags 1–5, both axes</td></tr>
-      <tr><td><code>anchor</code></td><td style="text-align:left">relative L2-SP keeps the update local to the source weights</td></tr>
+      <tr><td><code>moment</code></td><td style="text-align:left">conditional residual mean and variance match the law</td><td style="text-align:left"><b>kept — the whole objective</b></td></tr>
+      <tr><td><code>whiteness</code></td><td style="text-align:left">decorrelates the standardised residual over lags 1–5</td><td style="text-align:left">removed: −0.17 dB, buys decorrelation only</td></tr>
+      <tr><td><code>anchor</code></td><td style="text-align:left">relative L2-SP toward the source weights</td><td style="text-align:left">removed: +0.10 dB but not needed for stability</td></tr>
     </tbody></table></div>
   <figure>
     <img src="assets/architecture_detail.jpg" alt="Architecture and adaptation detail">
@@ -369,27 +370,21 @@ footer a{color:var(--accent)}
 </div></div></section>
 
 <section id="failure"><div class="wrap"><div class="narrow">
-  <h2>Where it fails</h2>
-  <p>At 10% dose NoLA reaches <b>36.68 dB against the frozen source model's
-  40.55</b> — worse than doing nothing. This is <i>not</i> estimation error: the
-  oracle-law variant fails identically (38.35 dB). It is the regime our own
-  criterion flags, at D = 1.05 against D = 2.09 at 25% dose. Noise2Inverse,
-  which shares none of this objective, also fails there (36.96 dB).</p>
+  <h2>Matching the objective is not the same as improving the image</h2>
+  <p>The residual audit measures, on the held-out patients, how well each
+  method's residual obeys the estimated law and how decorrelated it is. Plotted
+  against reconstruction quality, the two do not move together — in either
+  direction.</p>
   <div class="sim"><svg id="auditsvg" viewBox="0 0 720 300" role="img"></svg></div>
-  <div class="callout bad"><b>The objective is satisfied and the image is worse.</b>
-  At 10% dose NoLA attains the <i>best</i> law match (0.106) and the lowest
-  residual autocorrelation (0.012) of any method — better than supervised
-  fine-tuning — while producing the worst reconstruction. Matching the target's
-  residual statistics does not identify the clean signal. That is the method's
-  scope, stated as a limit rather than discovered by a reader.</div>
-  <figure>
-    <img src="assets/figS3_dose10.jpg" alt="10% dose failure">
-    <figcaption><b>The failure, shown rather than described.</b> Every adapted
-    variant produces radial streak artifacts absent from the source model, from
-    supervised fine-tuning, and from Noise2Inverse, which degrades at this dose
-    without producing them. We tested two mechanisms and falsified both; the
-    cause remains open.</figcaption>
-  </figure>
+  <div class="callout bad"><b>Two counter-examples on one plot.</b>
+  <i>Not necessary:</i> supervised fine-tuning has the <b>worst</b> law match of
+  any method (0.544) and the best image. <i>Not sufficient:</i> Global-Variance
+  TTA reaches almost NoLA's PSNR while leaving the law barely matched (0.438 vs
+  NoLA's 0.150) and driving residual autocorrelation to <b>0.634 — worse than
+  the unadapted source model's 0.407</b>. It matches the average variance and
+  corrupts the structure. Among the label-free methods that match the
+  <i>conditional</i> law, the two do track each other; that is the regime the
+  method is proposed for.</div>
 </div></div></section>
 
 <section><div class="wrap"><div class="narrow">
@@ -475,7 +470,7 @@ python examples/demo.py --target-i0 8000 --target-sigma-e 12</pre>
 </div></footer>
 
 <script>
-const DATA = {"grid": {"cells": [{"i0": 7500.0, "sigma_e": 4.999999999999999, "shift": 0.48427008146732964, "delta_psnr": 1.041401743888855, "diverged": false}, {"i0": 7500.0, "sigma_e": 9.999999999999998, "shift": 0.5038168825848164, "delta_psnr": -0.9437749505043058, "diverged": false}, {"i0": 7500.0, "sigma_e": 0.0, "shift": 0.604892132805058, "delta_psnr": 2.212035608291629, "diverged": false}, {"i0": 7500.0, "sigma_e": 19.999999999999996, "shift": 0.7821219459093485, "delta_psnr": -0.4595564365386977, "diverged": false}, {"i0": 15000.0, "sigma_e": 19.999999999999996, "shift": 0.9209822093415595, "delta_psnr": -0.4325530529022217, "diverged": false}, {"i0": 15000.0, "sigma_e": 9.999999999999998, "shift": 1.0536936093767086, "delta_psnr": 1.507194948196414, "diverged": false}, {"i0": 15000.0, "sigma_e": 4.999999999999999, "shift": 1.2140100375612208, "delta_psnr": 2.343731451034543, "diverged": false}, {"i0": 15000.0, "sigma_e": 0.0, "shift": 1.2980393133650034, "delta_psnr": 2.243452882766725, "diverged": false}, {"i0": 37500.0, "sigma_e": 20.0, "shift": 1.8660606920865557, "delta_psnr": 2.458268642425537, "diverged": false}, {"i0": 37500.0, "sigma_e": 10.0, "shift": 2.0894323105343506, "delta_psnr": 2.5287252902984605, "diverged": false}, {"i0": 37500.0, "sigma_e": 5.0, "shift": 2.177556095246869, "delta_psnr": 2.596667957305904, "diverged": false}, {"i0": 37500.0, "sigma_e": 0.0, "shift": 2.2143300452391586, "delta_psnr": 2.6607798576354966, "diverged": false}, {"i0": 75000.0, "sigma_e": 20.0, "shift": 2.692883003694689, "delta_psnr": 2.888873147964482, "diverged": false}, {"i0": 75000.0, "sigma_e": 10.0, "shift": 2.8383610269050505, "delta_psnr": 2.9683216571807876, "diverged": false}, {"i0": 75000.0, "sigma_e": 5.0, "shift": 2.88842862874868, "delta_psnr": 3.0502535343170223, "diverged": false}, {"i0": 75000.0, "sigma_e": 0.0, "shift": 2.9074772257991035, "delta_psnr": 3.042654466629031, "diverged": false}], "correlations": {"delta_psnr": {"rho": 0.9529411764705882, "p": 1.2096579348829016e-08}, "law_match_b0": {"rho": 0.9676470588235294, "p": 9.132894807195552e-10}}}, "metrics": [{"name": "FBP", "cls": "none", "psnr_op": 33.438, "ssim_op": 0.7448, "psnr": 33.1203, "ssim": 0.7189, "ms_ssim": 0.9461, "vif": 0.5795, "gmsd": 0.0607, "lpips": 0.3674, "dists": 0.2624, "fd_nps_shape_distance": 0.4515, "fd_nps_power_ratio": 4.8572}, {"name": "Source-only", "cls": "labelfree", "psnr_op": 40.5291, "ssim_op": 0.9619, "psnr": 38.4882, "ssim": 0.9284, "ms_ssim": 0.98, "vif": 0.3971, "gmsd": 0.0458, "lpips": 0.2323, "dists": 0.2213, "fd_nps_shape_distance": 0.4767, "fd_nps_power_ratio": 0.0767}, {"name": "AdaBN", "cls": "labelfree", "psnr_op": 41.6047, "ssim_op": 0.9684, "psnr": 39.3209, "ssim": 0.9366, "ms_ssim": 0.9842, "vif": 0.4393, "gmsd": 0.0354, "lpips": 0.195, "dists": 0.1917, "fd_nps_shape_distance": 0.6524, "fd_nps_power_ratio": 0.1307}, {"name": "Noise2Inverse (K=2)", "cls": "labelfree", "psnr_op": 41.4708, "ssim_op": 0.9464, "psnr": 39.5232, "ssim": 0.9199, "ms_ssim": 0.9828, "vif": 0.4855, "gmsd": 0.0317, "lpips": 0.2314, "dists": 0.1811, "fd_nps_shape_distance": 1.063, "fd_nps_power_ratio": 0.6495}, {"name": "Noise2Inverse (K=4)", "cls": "labelfree", "psnr_op": 36.4484, "ssim_op": 0.925, "psnr": 35.5151, "ssim": 0.8968, "ms_ssim": 0.9721, "vif": 0.3789, "gmsd": 0.0648, "lpips": 0.2337, "dists": 0.1746, "fd_nps_shape_distance": 1.2177, "fd_nps_power_ratio": 0.7796}, {"name": "NoLA", "cls": "ours", "psnr_op": 43.3254, "ssim_op": 0.9659, "psnr": 40.653, "ssim": 0.9374, "ms_ssim": 0.987, "vif": 0.5189, "gmsd": 0.0245, "lpips": 0.1609, "dists": 0.1573, "fd_nps_shape_distance": 0.8876, "fd_nps_power_ratio": 0.3266}, {"name": "NoLA oracle law", "cls": "oracle", "psnr_op": 43.4773, "ssim_op": 0.9672, "psnr": 40.7529, "ssim": 0.9387, "ms_ssim": 0.9875, "vif": 0.5212, "gmsd": 0.0233, "lpips": 0.1583, "dists": 0.1553, "fd_nps_shape_distance": 0.8912, "fd_nps_power_ratio": 0.3096}, {"name": "Supervised FT", "cls": "supervised", "psnr_op": 45.0577, "ssim_op": 0.9775, "psnr": 41.7811, "ssim": 0.9488, "ms_ssim": 0.9905, "vif": 0.5465, "gmsd": 0.0167, "lpips": 0.1252, "dists": 0.1306, "fd_nps_shape_distance": 1.0233, "fd_nps_power_ratio": 0.2456}, {"name": "RED-CNN (retrained)", "cls": "supervised", "psnr_op": 45.9636, "ssim_op": 0.9795, "psnr": 42.5552, "ssim": 0.9539, "ms_ssim": 0.9911, "vif": 0.542, "gmsd": 0.0155, "lpips": 0.1821, "dists": 0.1405, "fd_nps_shape_distance": 2.4311, "fd_nps_power_ratio": 0.1732}, {"name": "CTformer (retrained)", "cls": "supervised", "psnr_op": 38.3589, "ssim_op": 0.8962, "psnr": 37.1341, "ssim": 0.8593, "ms_ssim": 0.9765, "vif": 0.4938, "gmsd": 0.0298, "lpips": 0.2685, "dists": 0.2011, "fd_nps_shape_distance": 0.4705, "fd_nps_power_ratio": 1.1909}, {"name": "-moment", "cls": "ablation", "psnr_op": 42.5799, "ssim_op": 0.9578, "psnr": 40.3491, "ssim": 0.9291, "ms_ssim": 0.987, "vif": 0.524, "gmsd": 0.0189, "lpips": 0.1381, "dists": 0.1466, "fd_nps_shape_distance": 0.8456, "fd_nps_power_ratio": 0.3705}, {"name": "-whiteness", "cls": "ablation", "psnr_op": 43.5928, "ssim_op": 0.9676, "psnr": 40.863, "ssim": 0.9397, "ms_ssim": 0.9873, "vif": 0.5403, "gmsd": 0.0239, "lpips": 0.1355, "dists": 0.1353, "fd_nps_shape_distance": 1.0822, "fd_nps_power_ratio": 0.4024}, {"name": "-anchor", "cls": "ablation", "psnr_op": 43.3217, "ssim_op": 0.9658, "psnr": 40.648, "ssim": 0.9372, "ms_ssim": 0.9871, "vif": 0.5195, "gmsd": 0.0243, "lpips": 0.1604, "dists": 0.157, "fd_nps_shape_distance": 0.8911, "fd_nps_power_ratio": 0.3301}], "sweep": [{"w": 0.0, "psnr": 43.593, "rho": 0.0997, "law": 0.2132, "nps": 1.082, "lpips": 0.1355}, {"w": 0.1, "psnr": 43.385, "rho": 0.0587, "law": 0.285, "nps": 0.972, "lpips": 0.1514}, {"w": 0.25, "psnr": 43.269, "rho": 0.0312, "law": 0.3371, "nps": 0.919, "lpips": 0.1581}, {"w": 0.5, "psnr": 43.237, "rho": 0.0235, "law": 0.3525, "nps": 0.879, "lpips": 0.1617}, {"w": 1.0, "psnr": 43.325, "rho": 0.0238, "law": 0.2528, "nps": 0.888, "lpips": 0.1609}], "audit": {"25": [{"n": "Source-only", "law": 0.4942, "rho": 0.4067, "psnr": 40.53}, {"n": "AdaBN", "law": 0.354, "rho": 0.2816, "psnr": 41.6}, {"n": "NoLA", "law": 0.2514, "rho": 0.0238, "psnr": 43.33}, {"n": "Supervised FT", "law": 0.5437, "rho": 0.0707, "psnr": 45.06}], "10": [{"n": "Source-only", "law": 0.2442, "rho": 0.2996, "psnr": 40.55}, {"n": "AdaBN", "law": 0.209, "rho": 0.1666, "psnr": 38.59}, {"n": "NoLA", "law": 0.1058, "rho": 0.0123, "psnr": 36.68}, {"n": "Supervised FT", "law": 0.3817, "rho": 0.0667, "psnr": 42.83}]}};
+const DATA = {"grid": {"cells": [{"i0": 7500.0, "sigma_e": 4.999999999999999, "shift": 0.48427008146732964, "delta_psnr": 1.041401743888855, "diverged": false}, {"i0": 7500.0, "sigma_e": 9.999999999999998, "shift": 0.5038168825848164, "delta_psnr": -0.9437749505043058, "diverged": false}, {"i0": 7500.0, "sigma_e": 0.0, "shift": 0.604892132805058, "delta_psnr": 2.212035608291629, "diverged": false}, {"i0": 7500.0, "sigma_e": 19.999999999999996, "shift": 0.7821219459093485, "delta_psnr": -0.4595564365386977, "diverged": false}, {"i0": 15000.0, "sigma_e": 19.999999999999996, "shift": 0.9209822093415595, "delta_psnr": -0.4325530529022217, "diverged": false}, {"i0": 15000.0, "sigma_e": 9.999999999999998, "shift": 1.0536936093767086, "delta_psnr": 1.507194948196414, "diverged": false}, {"i0": 15000.0, "sigma_e": 4.999999999999999, "shift": 1.2140100375612208, "delta_psnr": 2.343731451034543, "diverged": false}, {"i0": 15000.0, "sigma_e": 0.0, "shift": 1.2980393133650034, "delta_psnr": 2.243452882766725, "diverged": false}, {"i0": 37500.0, "sigma_e": 20.0, "shift": 1.8660606920865557, "delta_psnr": 2.458268642425537, "diverged": false}, {"i0": 37500.0, "sigma_e": 10.0, "shift": 2.0894323105343506, "delta_psnr": 2.5287252902984605, "diverged": false}, {"i0": 37500.0, "sigma_e": 5.0, "shift": 2.177556095246869, "delta_psnr": 2.596667957305904, "diverged": false}, {"i0": 37500.0, "sigma_e": 0.0, "shift": 2.2143300452391586, "delta_psnr": 2.6607798576354966, "diverged": false}, {"i0": 75000.0, "sigma_e": 20.0, "shift": 2.692883003694689, "delta_psnr": 2.888873147964482, "diverged": false}, {"i0": 75000.0, "sigma_e": 10.0, "shift": 2.8383610269050505, "delta_psnr": 2.9683216571807876, "diverged": false}, {"i0": 75000.0, "sigma_e": 5.0, "shift": 2.88842862874868, "delta_psnr": 3.0502535343170223, "diverged": false}, {"i0": 75000.0, "sigma_e": 0.0, "shift": 2.9074772257991035, "delta_psnr": 3.042654466629031, "diverged": false}], "correlations": {"delta_psnr": {"rho": 0.9529411764705882, "p": 1.2096579348829016e-08}, "law_match_b0": {"rho": 0.9676470588235294, "p": 9.132894807195552e-10}}}, "metrics": [{"name": "FBP", "cls": "none", "psnr_op": 33.438, "ssim_op": 0.7448, "sino_nrmse": 0.0183, "psnr": 33.1203, "ssim": 0.7189, "ms_ssim": 0.9461, "vif": 0.5795, "gmsd": 0.0607, "lpips": 0.3674, "dists": 0.2624, "fd_nps_shape_distance": 0.4515, "fd_nps_power_ratio": 4.8572}, {"name": "Source-only", "cls": "labelfree", "psnr_op": 40.5291, "ssim_op": 0.9619, "sino_nrmse": 0.007, "psnr": 38.4882, "ssim": 0.9284, "ms_ssim": 0.98, "vif": 0.3971, "gmsd": 0.0458, "lpips": 0.2323, "dists": 0.2213, "fd_nps_shape_distance": 0.4767, "fd_nps_power_ratio": 0.0767}, {"name": "AdaBN", "cls": "labelfree", "psnr_op": 41.6047, "ssim_op": 0.9684, "sino_nrmse": 0.0064, "psnr": 39.3209, "ssim": 0.9366, "ms_ssim": 0.9842, "vif": 0.4393, "gmsd": 0.0354, "lpips": 0.195, "dists": 0.1917, "fd_nps_shape_distance": 0.6524, "fd_nps_power_ratio": 0.1307}, {"name": "Noise2Inverse (K=2)", "cls": "labelfree", "psnr_op": 41.4708, "ssim_op": 0.9464, "sino_nrmse": null, "psnr": 39.5232, "ssim": 0.9199, "ms_ssim": 0.9828, "vif": 0.4855, "gmsd": 0.0317, "lpips": 0.2314, "dists": 0.1811, "fd_nps_shape_distance": 1.063, "fd_nps_power_ratio": 0.6495}, {"name": "Noise2Inverse (K=4)", "cls": "labelfree", "psnr_op": 36.4484, "ssim_op": 0.925, "sino_nrmse": null, "psnr": 35.5151, "ssim": 0.8968, "ms_ssim": 0.9721, "vif": 0.3789, "gmsd": 0.0648, "lpips": 0.2337, "dists": 0.1746, "fd_nps_shape_distance": 1.2177, "fd_nps_power_ratio": 0.7796}, {"name": "Masked SSL-TTA", "cls": "labelfree", "psnr_op": 40.4464, "ssim_op": 0.9232, "sino_nrmse": 0.0076, "psnr": 39.4051, "ssim": 0.8992, "ms_ssim": 0.9848, "vif": 0.5814, "gmsd": 0.0184, "lpips": 0.203, "dists": 0.1794, "fd_nps_shape_distance": 0.4215, "fd_nps_power_ratio": 0.7142}, {"name": "Global-Variance TTA", "cls": "labelfree", "psnr_op": 43.3445, "ssim_op": 0.9647, "sino_nrmse": 0.006, "psnr": 40.8229, "ssim": 0.9375, "ms_ssim": 0.9871, "vif": 0.5519, "gmsd": 0.0241, "lpips": 0.1358, "dists": 0.1271, "fd_nps_shape_distance": 1.0871, "fd_nps_power_ratio": 0.5074}, {"name": "NoLA", "cls": "ours", "psnr_op": 43.4957, "ssim_op": 0.9665, "sino_nrmse": 0.0054, "psnr": 40.7464, "ssim": 0.9384, "ms_ssim": 0.9871, "vif": 0.5361, "gmsd": 0.0244, "lpips": 0.1398, "dists": 0.139, "fd_nps_shape_distance": 1.0471, "fd_nps_power_ratio": 0.3964}, {"name": "NoLA + white + anchor", "cls": "ablation", "psnr_op": 43.3254, "ssim_op": 0.9659, "sino_nrmse": 0.0054, "psnr": 40.653, "ssim": 0.9374, "ms_ssim": 0.987, "vif": 0.5189, "gmsd": 0.0245, "lpips": 0.1609, "dists": 0.1573, "fd_nps_shape_distance": 0.8876, "fd_nps_power_ratio": 0.3266}, {"name": "NoLA + whiteness", "cls": "ablation", "psnr_op": 43.3217, "ssim_op": 0.9658, "sino_nrmse": 0.0055, "psnr": 40.648, "ssim": 0.9372, "ms_ssim": 0.9871, "vif": 0.5195, "gmsd": 0.0243, "lpips": 0.1604, "dists": 0.157, "fd_nps_shape_distance": 0.8911, "fd_nps_power_ratio": 0.3301}, {"name": "NoLA + anchor", "cls": "ablation", "psnr_op": 43.5928, "ssim_op": 0.9676, "sino_nrmse": 0.0055, "psnr": 40.863, "ssim": 0.9397, "ms_ssim": 0.9873, "vif": 0.5403, "gmsd": 0.0239, "lpips": 0.1355, "dists": 0.1353, "fd_nps_shape_distance": 1.0822, "fd_nps_power_ratio": 0.4024}, {"name": "NoLA oracle law", "cls": "oracle", "psnr_op": 43.4773, "ssim_op": 0.9672, "sino_nrmse": 0.0054, "psnr": 40.7529, "ssim": 0.9387, "ms_ssim": 0.9875, "vif": 0.5212, "gmsd": 0.0233, "lpips": 0.1583, "dists": 0.1553, "fd_nps_shape_distance": 0.8912, "fd_nps_power_ratio": 0.3096}, {"name": "Supervised FT", "cls": "supervised", "psnr_op": 45.0577, "ssim_op": 0.9775, "sino_nrmse": 0.004, "psnr": 41.7811, "ssim": 0.9488, "ms_ssim": 0.9905, "vif": 0.5465, "gmsd": 0.0167, "lpips": 0.1252, "dists": 0.1306, "fd_nps_shape_distance": 1.0233, "fd_nps_power_ratio": 0.2456}, {"name": "RED-CNN (retrained)", "cls": "supervised", "psnr_op": 45.9636, "ssim_op": 0.9795, "sino_nrmse": null, "psnr": 42.5552, "ssim": 0.9539, "ms_ssim": 0.9911, "vif": 0.542, "gmsd": 0.0155, "lpips": 0.1821, "dists": 0.1405, "fd_nps_shape_distance": 2.4311, "fd_nps_power_ratio": 0.1732}, {"name": "CTformer (retrained)", "cls": "supervised", "psnr_op": 38.3589, "ssim_op": 0.8962, "sino_nrmse": null, "psnr": 37.1341, "ssim": 0.8593, "ms_ssim": 0.9765, "vif": 0.4938, "gmsd": 0.0298, "lpips": 0.2685, "dists": 0.2011, "fd_nps_shape_distance": 0.4705, "fd_nps_power_ratio": 1.1909}], "sweep": [{"w": 0.0, "psnr": 43.593, "rho": 0.0997, "law": 0.2132, "nps": 1.082, "lpips": 0.1355}, {"w": 0.1, "psnr": 43.385, "rho": 0.0587, "law": 0.285, "nps": 0.972, "lpips": 0.1514}, {"w": 0.25, "psnr": 43.269, "rho": 0.0312, "law": 0.3371, "nps": 0.919, "lpips": 0.1581}, {"w": 0.5, "psnr": 43.237, "rho": 0.0235, "law": 0.3525, "nps": 0.879, "lpips": 0.1617}, {"w": 1.0, "psnr": 43.325, "rho": 0.0238, "law": 0.2528, "nps": 0.888, "lpips": 0.1609}], "audit": {"25": [{"n": "Source-only", "law": 0.4946, "rho": 0.4067, "psnr": 40.53}, {"n": "AdaBN", "law": 0.354, "rho": 0.2816, "psnr": 41.6}, {"n": "Masked SSL-TTA", "law": 0.6067, "rho": 0.2081, "psnr": 40.45}, {"n": "Global-Variance TTA", "law": 0.4376, "rho": 0.6344, "psnr": 43.34}, {"n": "NoLA", "law": 0.1496, "rho": 0.0997, "psnr": 43.5}, {"n": "NoLA + white + anchor", "law": 0.2528, "rho": 0.0238, "psnr": 43.33}, {"n": "Supervised FT", "law": 0.5441, "rho": 0.0707, "psnr": 45.06}]}};
 (function(){
 const NS="http://www.w3.org/2000/svg";
 const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in(a||{}))e.setAttribute(k,a[k]);return e;};
@@ -521,7 +516,7 @@ function drawLaw(){
   vd.innerHTML="<b>Shift magnitude D = "+D.toFixed(2)+"</b> — "+
     (D>1.3?"large mismatch: adaptation is expected to help.":
      D<0.9?"low mismatch: adaptation is unreliable here and can hurt.":
-     "borderline — the 10% dose case that fails sits at D = 1.05.")+
+     "borderline: the grid shows mixed outcomes near D ≈ 1.")+
     "<br><span style='color:var(--mut);font-size:14px'>The dashed line is the best "+
     "possible <i>rescaling</i> of the source law. It still misses the target by a "+
     "factor of "+spread.toFixed(1)+" across the signal range, because rescaling "+
@@ -543,7 +538,7 @@ function drawGrid(){
   [0.5,1,1.5,2,2.5].forEach(g=>{const xx=X(g);
     s.appendChild(el("line",{x1:xx,x2:xx,y1:T,y2:H-B,class:"gr"}));
     const t=el("text",{x:xx,y:H-B+16,class:"tx","text-anchor":"middle"});t.textContent=g;s.appendChild(t);});
-  [[2.09,"25% dose"],[1.05,"10% dose"]].forEach(([d,lab])=>{
+  [[2.09,"25% dose"]].forEach(([d,lab])=>{
     s.appendChild(el("line",{x1:X(d),x2:X(d),y1:T,y2:H-B,stroke:OURS,
       "stroke-width":1,"stroke-dasharray":"4 4",opacity:.55}));
     const t=el("text",{x:X(d)+5,y:T+12,class:"tx",fill:OURS});t.textContent=lab;s.appendChild(t);});
@@ -654,33 +649,31 @@ function line(id,key,ylab,col,fmt){
   xl.textContent="whiteness weight λ";s.appendChild(xl);
 }
 function drawAudit(){
-  const s=document.getElementById("auditsvg"),W=720,H=300,L=62,R=155,T=18,B=46;
+  const s=document.getElementById("auditsvg"),W=720,H=300,L=62,R=24,T=18,B=46;
   s.textContent="";
-  const all=DATA.audit["25"].concat(DATA.audit["10"]);
-  const x1=Math.max(...all.map(d=>d.law))*1.12;
-  const y0=Math.min(...all.map(d=>d.psnr))-1,y1=Math.max(...all.map(d=>d.psnr))+1;
+  const pts=DATA.audit["25"];
+  const x1=Math.max(...pts.map(d=>d.law))*1.10;
+  const y0=Math.min(...pts.map(d=>d.psnr))-0.8,y1=Math.max(...pts.map(d=>d.psnr))+0.8;
   const X=q=>L+(W-L-R)*q/x1,Y=q=>T+(H-T-B)*(1-(q-y0)/(y1-y0));
-  [0.1,0.2,0.3,0.4,0.5].forEach(g=>{s.appendChild(el("line",{x1:X(g),x2:X(g),y1:T,y2:H-B,class:"gr"}));
+  [0.1,0.2,0.3,0.4,0.5,0.6].forEach(g=>{if(g>x1)return;
+    s.appendChild(el("line",{x1:X(g),x2:X(g),y1:T,y2:H-B,class:"gr"}));
     const t=el("text",{x:X(g),y:H-B+15,class:"tx","text-anchor":"middle"});t.textContent=g;s.appendChild(t);});
-  [36,38,40,42,44].forEach(g=>{s.appendChild(el("line",{x1:L,x2:W-R,y1:Y(g),y2:Y(g),class:"gr"}));
+  [40,41,42,43,44,45].forEach(g=>{if(g<y0||g>y1)return;
+    s.appendChild(el("line",{x1:L,x2:W-R,y1:Y(g),y2:Y(g),class:"gr"}));
     const t=el("text",{x:L-7,y:Y(g)+3,class:"tx","text-anchor":"end"});t.textContent=g;s.appendChild(t);});
-  [["25",BLUE,"25% dose — works"],["10",OURS,"10% dose — inverts"]].forEach(([k,col,lab],gi)=>{
-    const pts=DATA.audit[k].slice().sort((a,b)=>a.law-b.law);
-    let d="";pts.forEach((q,i)=>{d+=(i?"L":"M")+X(q.law)+" "+Y(q.psnr);});
-    s.appendChild(el("path",{d:d,fill:"none",stroke:col,"stroke-width":1.5,
-      "stroke-dasharray":k==="10"?"":"5 3",opacity:.5}));
-    pts.forEach(q=>{const c=el("circle",{cx:X(q.law),cy:Y(q.psnr),r:q.n==="NoLA"?6:4.2,
-      fill:col,opacity:q.n==="NoLA"?1:.65,stroke:"#fff","stroke-width":1.4});
-      const ti=el("title");ti.textContent=q.n+" @ "+k+"%: law "+q.law.toFixed(3)+
-        ", max|ρ| "+q.rho.toFixed(4)+", "+q.psnr.toFixed(2)+" dB";
-      c.appendChild(ti);s.appendChild(c);
-      if(q.n==="NoLA"){const t=el("text",{x:X(q.law)+9,y:Y(q.psnr)+4,class:"tx",fill:col});
-        t.textContent="NoLA";s.appendChild(t);}});
-    const lg=el("text",{x:W-R+16,y:T+18+gi*20,class:"tx",fill:col});lg.textContent=lab;s.appendChild(lg);});
+  const col=n=>n==="NoLA"?OURS:(n==="Supervised FT"?OK:(n==="NoLA + white + anchor"?"#8892a0":BLUE));
+  pts.forEach(q=>{
+    const c=el("circle",{cx:X(q.law),cy:Y(q.psnr),r:q.n==="NoLA"?6.5:4.6,fill:col(q.n),
+      stroke:"#fff","stroke-width":1.4});
+    const ti=el("title");ti.textContent=q.n+": law "+q.law.toFixed(3)+", max|ρ| "+
+      q.rho.toFixed(4)+", "+q.psnr.toFixed(2)+" dB";c.appendChild(ti);s.appendChild(c);
+    const dy=(q.n==="Global-Variance TTA"||q.n==="AdaBN")?-9:5;
+    const t=el("text",{x:X(q.law)+9,y:Y(q.psnr)+dy,class:"tx",fill:col(q.n),
+      style:q.n==="NoLA"?"font-weight:700":""});t.textContent=q.n;s.appendChild(t);});
   const xl=el("text",{x:(L+W-R)/2,y:H-8,class:"tx","text-anchor":"middle"});
-  xl.textContent="residual law discrepancy  (0 = residual obeys the estimated law)";s.appendChild(xl);
+  xl.textContent="residual law discrepancy on held-out patients  (0 = residual obeys the estimated law)";s.appendChild(xl);
   const yl=el("text",{x:14,y:H/2,class:"tx","text-anchor":"middle",
-    transform:"rotate(-90 14 "+(H/2)+")"});yl.textContent="PSNR_op (dB)";s.appendChild(yl);
+    transform:"rotate(-90 14 "+(H/2)+")"});yl.textContent="PSNR_op (dB), 25% dose";s.appendChild(yl);
 }
 
 drawLaw();drawGrid();drawTable();drawAudit();

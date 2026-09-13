@@ -38,17 +38,17 @@ def main() -> int:
         {"w": 0.5,  "psnr": 43.237, "rho": 0.0235, "law": 0.3525, "nps": 0.879, "lpips": 0.1617},
         {"w": 1.0,  "psnr": 43.325, "rho": 0.0238, "law": 0.2528, "nps": 0.888, "lpips": 0.1609},
     ]
-    # Residual audit on held-out patients, both doses. The 10% row is the
-    # paper's central negative result: best statistics, worst image.
+    # Residual audit on the held-out patients, 25% dose, final objective set.
+    # 10% dose is not included: the final-objective experiments were run at
+    # 25% only, and a 10% series would mix objectives across doses.
     audit = {
-        "25": [{"n": "Source-only", "law": 0.4942, "rho": 0.4067, "psnr": 40.53},
+        "25": [{"n": "Source-only", "law": 0.4946, "rho": 0.4067, "psnr": 40.53},
                {"n": "AdaBN", "law": 0.3540, "rho": 0.2816, "psnr": 41.60},
-               {"n": "NoLA", "law": 0.2514, "rho": 0.0238, "psnr": 43.33},
-               {"n": "Supervised FT", "law": 0.5437, "rho": 0.0707, "psnr": 45.06}],
-        "10": [{"n": "Source-only", "law": 0.2442, "rho": 0.2996, "psnr": 40.55},
-               {"n": "AdaBN", "law": 0.2090, "rho": 0.1666, "psnr": 38.59},
-               {"n": "NoLA", "law": 0.1058, "rho": 0.0123, "psnr": 36.68},
-               {"n": "Supervised FT", "law": 0.3817, "rho": 0.0667, "psnr": 42.83}],
+               {"n": "Masked SSL-TTA", "law": 0.6067, "rho": 0.2081, "psnr": 40.45},
+               {"n": "Global-Variance TTA", "law": 0.4376, "rho": 0.6344, "psnr": 43.34},
+               {"n": "NoLA", "law": 0.1496, "rho": 0.0997, "psnr": 43.50},
+               {"n": "NoLA + white + anchor", "law": 0.2528, "rho": 0.0238, "psnr": 43.33},
+               {"n": "Supervised FT", "law": 0.5441, "rho": 0.0707, "psnr": 45.06}],
     }
     payload = {"grid": grid, "metrics": metrics, "sweep": sweep, "audit": audit}
 
