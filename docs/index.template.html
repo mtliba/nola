@@ -270,12 +270,19 @@ footer a{color:var(--accent)}
     <img src="assets/fig3_qualitative_L506_s58.jpg" alt="Qualitative comparison">
     <figcaption><b>Cross-system transfer on one held-out slice</b> (L506, slice 58, 25%
     dose — the slice where NoLA scores highest). Rows: reconstruction, magnified ROI, signed error against
-    FBP(clean sinogram) at ±120 HU, and radial noise power spectrum in flat
-    tissue. The source model and AdaBN over-smooth, leaving anatomical
+    FBP(clean sinogram) at ±120 HU, the same error inside the ROI, and radial
+    noise power spectrum in flat tissue. The source model and AdaBN over-smooth, leaving anatomical
     boundaries in their error maps. NoLA suppresses these structured errors and
     approaches supervised fine-tuning. Noise2Inverse instead leaves
     <i>coherent arcs</i> — angular-undersampling artifacts from reconstructing
     split view subsets, visible directly as banding in its ROI crop.</figcaption>
+  </figure>
+  <figure>
+    <img src="assets/fig3_qualitative_L506_s58_closeup.jpg" alt="Qualitative comparison, close-up only">
+    <figcaption><b>The same slice, close-up only.</b> ROI and its signed error
+    at the magnification of the crop: edge rings for the source model and
+    AdaBN, horizontal streaks for Noise2Inverse, a near-noise residual for
+    NoLA and supervised fine-tuning. PSNR is over the whole slice.</figcaption>
   </figure>
   <figure>
     <img src="assets/figS1_gallery_blockA.jpg" alt="Gallery across patients">
