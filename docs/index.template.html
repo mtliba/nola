@@ -394,8 +394,10 @@ footer a{color:var(--accent)}
   40.55 (−1.65 dB)</b>, worse on three of four patients, better on one — and
   <b>+2.22 dB better than the previous formulation</b> on 100% of slices: the
   whiteness and anchor terms were responsible for most of the earlier failure.
-  Global-Variance TTA is actively destructive here (max|ρ| 0.834, the most
-  correlated residual of any method). Only supervised fine-tuning helps
+  It is not estimation error: the estimated law is within 3% of the truth, and
+  the same objective run with the <i>true</i> law is worse still (36.30 dB) while
+  matching the law better. Global-Variance TTA is actively destructive here
+  (max|ρ| 0.834, the most correlated residual of any method). Only supervised fine-tuning helps
   (+2.27 dB). The mismatch score flags this regime in advance: D = 1.05,
   the borderline the controlled grid identified.</p>
   <figure>
@@ -426,8 +428,9 @@ footer a{color:var(--accent)}
   <h3>Estimator accuracy</h3>
   <p>From unlabelled sinograms of the six adaptation patients, relative error on
   (I₀, σ<sub>e</sub>) is (4.3%, 7.9%) at 25% dose, (2.9%, 4.5%) at 10% and
-  (2.4%, 5.7%) at 5%. Supplying the <i>true</i> law instead of the estimate is
-  worth only 0.15 dB — the estimator is not the bottleneck.</p>
+  (2.4%, 5.7%) at 5%. Supplying the <i>true</i> law instead of the estimate,
+  with the objective otherwise unchanged, is worth 0.14 dB (43.64 vs 43.50,
+  on every held-out slice) — the estimator is not the bottleneck.</p>
   <figure>
     <img src="assets/fig7_identifiability.jpg" alt="Identifiability of sigma_e">
     <figcaption><b>Why σ<sub>e</sub> is the harder parameter.</b> The electronic
@@ -581,8 +584,8 @@ const ALL=[["name","Method",null],["psnr_op","PSNR_op",1],["ssim_op","SSIM_op",1
   ["gmsd","GMSD",-1],["lpips","LPIPS",-1],["dists","DISTS",-1],
   ["fd_nps_shape_distance","NPS shape",-1],["fd_nps_power_ratio","NPS power",0]];
 const AUD=[["name","Method",null],["law","Law err.",-1],["rho","max|ρ|",-1],["psnr","PSNR_op",1]];
-const STAT={"Source-only":[0.494,0.4067],"AdaBN":[0.354,0.2816],"NoLA":[0.253,0.0238],
-  "Supervised FT":[0.544,0.0707],"-whiteness":[0.213,0.0997]};
+const STAT=Object.fromEntries([...(((DATA.audit||{})["25"])||[]),...(DATA.audit_extra||[])]
+  .map(a=>[a.n,[a.law,a.rho]]));
 const CLSCOL={none:GREY,labelfree:BLUE,ours:OURS,oracle:WARN,supervised:OK,ablation:"#8892a0"};
 function enrich(){
   const base=(DATA.metrics||[]).find(x=>x.name==="Source-only");
@@ -638,7 +641,7 @@ function drawTable(){
   render("tmain",MAIN,all.filter(r=>HEADLINE.includes(r.name)),S1);
   render("tall",ALL,all,S2,GRP);
   render("taud",AUD,DATA.audit["25"].map(d=>({name:d.n,law:d.law,rho:d.rho,psnr:d.psnr,
-    cls:d.n==="NoLA"?"ours":(d.n==="Supervised FT"?"supervised":"labelfree")})),S3);
+    cls:d.n==="NoLA"?"ours":(d.n==="Supervised FT"?"supervised":(d.n==="NoLA oracle law"?"oracle":"labelfree"))})),S3);
   document.getElementById("tablegend").innerHTML=
     [["no denoising",GREY],["label-free",BLUE],["NoLA (ours)",OURS],
      ["oracle law",WARN],["supervised on target",OK]].map(([l,c])=>
@@ -680,13 +683,13 @@ function drawAudit(){
   [40,41,42,43,44,45].forEach(g=>{if(g<y0||g>y1)return;
     s.appendChild(el("line",{x1:L,x2:W-R,y1:Y(g),y2:Y(g),class:"gr"}));
     const t=el("text",{x:L-7,y:Y(g)+3,class:"tx","text-anchor":"end"});t.textContent=g;s.appendChild(t);});
-  const col=n=>n==="NoLA"?OURS:(n==="Supervised FT"?OK:(n==="NoLA + white + anchor"?"#8892a0":BLUE));
+  const col=n=>n==="NoLA"?OURS:(n==="Supervised FT"?OK:(n==="NoLA + white + anchor"?"#8892a0":(n==="NoLA oracle law"?WARN:BLUE)));
   pts.forEach(q=>{
     const c=el("circle",{cx:X(q.law),cy:Y(q.psnr),r:q.n==="NoLA"?6.5:4.6,fill:col(q.n),
       stroke:"#fff","stroke-width":1.4});
     const ti=el("title");ti.textContent=q.n+": law "+q.law.toFixed(3)+", max|ρ| "+
       q.rho.toFixed(4)+", "+q.psnr.toFixed(2)+" dB";c.appendChild(ti);s.appendChild(c);
-    const dy=(q.n==="Global-Variance TTA"||q.n==="AdaBN")?-9:5;
+    const dy=(q.n==="Global-Variance TTA"||q.n==="AdaBN"||q.n==="NoLA oracle law")?-9:5;
     const t=el("text",{x:X(q.law)+9,y:Y(q.psnr)+dy,class:"tx",fill:col(q.n),
       style:q.n==="NoLA"?"font-weight:700":""});t.textContent=q.n;s.appendChild(t);});
   const xl=el("text",{x:(L+W-R)/2,y:H-8,class:"tx","text-anchor":"middle"});

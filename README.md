@@ -193,7 +193,7 @@ error from reconstruction mismatch.
 | Masked SSL-TTA | 40.45 ± 2.11 | −0.08 | 0.9232 | 0.607 | 0.2081 |
 | Global-Variance TTA | 43.34 ± 1.93 | +2.82 | 0.9647 | 0.438 | 0.6344 |
 | **NoLA** | **43.50 ± 1.83** | **+2.97** | 0.9665 | **0.150** | 0.0997 |
-| NoLA, oracle law | 43.48 ± 1.61 | +2.95 | 0.9672 | 0.305 | 0.0202 |
+| NoLA, oracle law | 43.64 ± 1.81 | +3.11 | 0.9673 | 0.279 | 0.0969 |
 | *Supervised fine-tune* | *45.06 ± 0.94* | *+4.53* | *0.9775* | *0.544* | *0.0707* |
 
 Against Noise2Inverse — the like-for-like label-free baseline, trained on the
@@ -213,6 +213,11 @@ worse than the unadapted source model (0.407)**. It matches the average
 variance and corrupts the structure. The signal-dependent law is what makes the
 adapted residual actually obey the target physics; on PSNR alone the margin is
 +0.15 dB.
+
+*Estimation is not the bottleneck:* the same objective run with the **true**
+target law instead of the estimate — the only thing changed — gives 43.64 dB,
++0.14 dB, on every slice. At 10 % dose the true law makes the adapted model
+*worse* (36.30 vs 38.91 dB): that failure is the regime, not the estimator.
 
 ---
 

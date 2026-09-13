@@ -47,10 +47,19 @@ def main() -> int:
                {"n": "Masked SSL-TTA", "law": 0.6067, "rho": 0.2081, "psnr": 40.45},
                {"n": "Global-Variance TTA", "law": 0.4376, "rho": 0.6344, "psnr": 43.34},
                {"n": "NoLA", "law": 0.1496, "rho": 0.0997, "psnr": 43.50},
+               {"n": "NoLA oracle law", "law": 0.2793, "rho": 0.0969, "psnr": 43.64},
                {"n": "NoLA + white + anchor", "law": 0.2528, "rho": 0.0238, "psnr": 43.33},
                {"n": "Supervised FT", "law": 0.5441, "rho": 0.0707, "psnr": 45.06}],
     }
-    payload = {"grid": grid, "metrics": metrics, "sweep": sweep, "audit": audit}
+    # Ablation rows: in the big table's law/rho columns only, not on the
+    # scatter, where their labels would sit on top of NoLA's.
+    audit_extra = [
+        {"n": "NoLA + whiteness", "law": 0.2723, "rho": 0.0186},
+        {"n": "NoLA + anchor", "law": 0.2132, "rho": 0.0997},
+        {"n": "NoLA + white + anchor, oracle law", "law": 0.3047, "rho": 0.0202},
+    ]
+    payload = {"grid": grid, "metrics": metrics, "sweep": sweep, "audit": audit,
+               "audit_extra": audit_extra}
 
     html = TEMPLATE.read_text().replace(
         "/*__DATA__*/", "const DATA = " + json.dumps(payload) + ";")
