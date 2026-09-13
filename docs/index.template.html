@@ -226,21 +226,14 @@ footer a{color:var(--accent)}
 <section><div class="wrap"><div class="narrow">
   <h2>Method</h2>
   <figure>
-    <img src="assets/overview_framework.jpg" alt="Full NoLA framework">
-    <figcaption><b>The full framework.</b> (a) Problem setup, with the measured
-    noise law of each system beside its sinogram. (b) Three stages: offline
-    source training on labelled source pairs, target-law estimation from
-    unlabelled target sinograms, and source-free adaptation driven by that law.
-    (c) Why adaptation is needed. (d) What it achieves, and the mismatch score
-    D used to decide whether to adapt at all.</figcaption>
-  </figure>
-  <figure>
     <img src="assets/fig2_method.jpg" alt="NoLA framework">
     <figcaption><b>NoLA.</b> A source-trained projection U-Net is adapted using
     only unlabelled target sinograms. The target noise law is first estimated
-    from local sinogram statistics, then used to guide adaptation through
-    conditional moment matching, residual decorrelation and source
-    anchoring.</figcaption>
+    from local sinogram statistics, then used as the adaptation signal:
+    the residual's mean and variance are matched to that law in 20 signal
+    bands. (c) On held-out patients the standardised residual's
+    autocorrelation falls from max|ρ| = 0.41 to 0.10 although no
+    decorrelation term is used.</figcaption>
   </figure>
   <h3>Estimating the law without labels</h3>
   <p>A local second difference along the <i>view</i> axis provides a noise
@@ -260,15 +253,6 @@ footer a{color:var(--accent)}
       <tr><td><code>whiteness</code></td><td style="text-align:left">decorrelates the standardised residual over lags 1–5</td><td style="text-align:left">removed: −0.17 dB, buys decorrelation only</td></tr>
       <tr><td><code>anchor</code></td><td style="text-align:left">relative L2-SP toward the source weights</td><td style="text-align:left">removed: +0.10 dB but not needed for stability</td></tr>
     </tbody></table></div>
-  <figure>
-    <img src="assets/architecture_detail.jpg" alt="Architecture and adaptation detail">
-    <figcaption><b>The denoiser and the adaptation, in detail.</b> A 17.5M-parameter
-    residual U-Net trained on 8,000 LoDoPaB slices. During adaptation only the
-    three physics-based losses act, on target sinograms alone. The residual
-    panels show what changes: the adapted model leaves a whiter,
-    signal-dependent residual where the source model left visible
-    structure.</figcaption>
-  </figure>
   <div class="callout"><b>A term we removed.</b> An earlier formulation penalised
   residual–output orthogonality. That was wrong: for a Gaussian signal the MMSE
   estimator has <code>Cov(r, ŝ) = α(1−α)Var(y) &gt; 0</code>, so driving it to zero
